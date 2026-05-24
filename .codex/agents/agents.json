@@ -1,0 +1,113 @@
+{
+  "version": "0.1.0",
+  "project": "RoleMux",
+  "defaultLanguage": "zh-CN",
+  "rootInstructions": [
+    "Read AGENTS.md before starting.",
+    "Read docs/progress/status.md, docs/progress/timeline.md, and the latest docs/progress/logs/YYYY-MM-DD.md.",
+    "Read spec/rolemux-development-spec.md before major feature work.",
+    "Read docs/dev/code-style.md before changing TypeScript, Skill, role prompt, or test files.",
+    "Do not read, print, or store secrets, tokens, cookies, or private credentials.",
+    "Do not use dangerous bypass or sandbox flags unless the user explicitly requests them.",
+    "Update progress trace documents for every delivered change.",
+    "Verification evidence is required before claiming completion."
+  ],
+  "agents": [
+    {
+      "name": "rolemux-researcher",
+      "type": "read-only",
+      "promptFile": ".codex/agents/rolemux-researcher.md",
+      "purpose": "Research specs, prior decisions, CLI/provider references, and affected files.",
+      "allowedWritePaths": [],
+      "defaultValidation": [
+        "Summarize exact files read and findings.",
+        "Report gaps, risks, and suggested next checks."
+      ]
+    },
+    {
+      "name": "rolemux-architect",
+      "type": "planning",
+      "promptFile": ".codex/agents/rolemux-architect.md",
+      "purpose": "Design CLI boundaries, module interfaces, task artifact schema, and safe defaults.",
+      "allowedWritePaths": [
+        "spec/",
+        "docs/progress/",
+        "docs/dev/"
+      ],
+      "defaultValidation": [
+        "Check plans for scope, contradictions, missing validation, and unclear ownership."
+      ]
+    },
+    {
+      "name": "rolemux-cli-builder",
+      "type": "implementation",
+      "promptFile": ".codex/agents/rolemux-cli-builder.md",
+      "purpose": "Implement CLI commands, core services, provider adapters, and tests.",
+      "allowedWritePaths": [
+        "src/",
+        "tests/",
+        "package.json",
+        "tsconfig.json",
+        "vitest.config.ts",
+        "tsup.config.ts"
+      ],
+      "defaultValidation": [
+        "npm test",
+        "npm run typecheck",
+        "npm run lint"
+      ]
+    },
+    {
+      "name": "rolemux-skill-builder",
+      "type": "implementation",
+      "promptFile": ".codex/agents/rolemux-skill-builder.md",
+      "purpose": "Implement Codex/Claude Skills, default role prompts, and install copy behavior.",
+      "allowedWritePaths": [
+        "skills/",
+        "roles/",
+        "templates/",
+        "src/commands/install.ts",
+        "tests/"
+      ],
+      "defaultValidation": [
+        "npm test",
+        "Check Skill trigger text and install paths."
+      ]
+    },
+    {
+      "name": "rolemux-reviewer",
+      "type": "review",
+      "promptFile": ".codex/agents/rolemux-reviewer.md",
+      "purpose": "Review correctness, security boundaries, cross-platform path behavior, and test gaps.",
+      "allowedWritePaths": [],
+      "defaultValidation": [
+        "Report findings with severity and file references.",
+        "Do not modify files unless explicitly authorized."
+      ]
+    },
+    {
+      "name": "rolemux-docs-keeper",
+      "type": "documentation",
+      "promptFile": ".codex/agents/rolemux-docs-keeper.md",
+      "purpose": "Maintain progress records, README, specs, development docs, and validation notes.",
+      "allowedWritePaths": [
+        "docs/progress/",
+        "docs/dev/",
+        "README.md",
+        "spec/",
+        "AGENTS.md"
+      ],
+      "defaultValidation": [
+        "Check required trace documents exist.",
+        "Check links and referenced paths are current."
+      ]
+    }
+  ],
+  "requiredReturnFormat": [
+    "改动摘要",
+    "涉及文件",
+    "验证结果",
+    "未完成项",
+    "风险与后续建议"
+  ]
+}
