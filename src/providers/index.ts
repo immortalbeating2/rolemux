@@ -1,0 +1,30 @@
+import { CliError } from '../core/cli-error.js';
+import { agyAdapter } from './agy.js';
+import { claudeAdapter } from './claude.js';
+import { codexAdapter } from './codex.js';
+import { ProviderAdapter, ProviderName } from './provider.js';
+
+const providerAdapters: Record<ProviderName, ProviderAdapter> = {
+  codex: codexAdapter,
+  claude: claudeAdapter,
+  agy: agyAdapter
+};
+
+/** Returns a provider adapter by stable provider name. */
+export function getProviderAdapter(provider: ProviderName): ProviderAdapter {
+  const adapter = providerAdapters[provider];
+  if (adapter === undefined) {
+    throw new CliError(`Unknown provider: ${provider}`, {
+      code: 'PROVIDER_NOT_FOUND',
+      details: { provider }
+    });
+  }
+  return adapter;
+}
+
+/** Lists all registered provider adapters. */
+export function listProviderAdapters(): readonly ProviderAdapter[] {
+  return Object.values(providerAdapters);
+}
+
+export type { ProviderAdapter, ProviderCommand, ProviderCommandInput, ProviderName } from './provider.js';

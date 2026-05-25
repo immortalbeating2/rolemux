@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
 更新时间：2026-05-25
-当前阶段：git 仓库、开发规范、本地 Codex/subagent 角色设置、M0-M6 阶段开发文档与阶段实施文档已初始化，尚未进入正式源码工程初始化
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现，最终审查反馈已处理，等待提交收口
 
 ## 当前真实状态
 
@@ -20,7 +20,11 @@
 - 本次新增 `spec/phases/`，将 M0-M6 拆分为阶段开发文档。
 - 本次新增 `spec/implementation/`，将 M0-M6 拆分为阶段实施文档。
 - 本次更新 `AGENTS.md`，把阶段开发文档、阶段实施文档和读取门禁吸收到项目级规则。
-- 当前还没有 `package.json`、`src/`、`tests/`、`skills/`、`roles/` 等正式工程目录。
+- 已新增 TypeScript CLI 工程：`package.json`、`tsconfig.json`、`src/`、`tests/`、`dist/` 构建输出。
+- 已实现 CLI 命令：`install`、`doctor`、`run`、`status`、`clean`、`plan`、`review`、`discuss`。
+- 已实现 core/provider/report 模块：provider adapter、process runner、task store、metadata、fallback、prompt builder、HTML report。
+- 已新增 Codex/Claude Skill bundle、默认 roles、config/report 模板、examples 和 release checklist。
+- 当前开发分支：`feature/complete-rolemux-plugin`。
 
 ## 产品基线
 
@@ -46,13 +50,41 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 
 ## 下一步建议
 
-1. 按 `spec/phases/m0-project-initialization.md` 和 `spec/implementation/m0-project-initialization-plan.md` 执行 M0。
-2. 初始化 Node.js + TypeScript 工程。
-3. 创建 `package.json`、`tsconfig.json`、`src/cli.ts`、基础测试配置。
-4. 实现 `rolemux --help` 的最小入口。
-5. 更新本状态文档和当日日志。
+1. 提交 `feature/complete-rolemux-plugin` 当前实现。
+2. 根据用户选择决定是否合并回 `main`。
+3. 后续补充真实 provider mock run 的跨平台执行策略。
 
 ## 本次验证记录
+
+2026-05-25 已执行 M0-M6 MVP 实现验证：
+
+```powershell
+npm run typecheck
+npm test
+npm run build
+node .\dist\cli.js --help
+node .\dist\cli.js doctor
+node .\dist\cli.js install --dry-run
+node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
+node .\dist\cli.js plan --providers codex,claude --task .\examples\basic-task.md --workdir . --dry-run
+node .\dist\cli.js review --provider codex --task .\examples\basic-task.md --workdir . --dry-run
+node .\dist\cli.js discuss --providers codex,claude,agy --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
+npm pack --dry-run
+git diff --check
+```
+
+结果：typecheck 通过；测试通过，11 个 test files / 15 个 tests；build 通过并生成 `dist/cli.js` 与 `dist/cli.d.ts`；CLI dry-run 命令均 exit 0；`npm pack --dry-run` 包含 `dist`、`skills`、`roles`、`templates`、`examples`、`docs/release/checklist.md`、`README.md`、`LICENSE`；`git diff --check` 无 whitespace 问题。
+
+最终审查反馈处理后补充验证：测试增加到 17 个；`review --role reviewer --dry-run` 可执行且 prompt 包含默认 reviewer role prompt；`doctor --providers codex` 在只检查 codex 时返回 `ok: true`；`discuss --mode nope --dry-run` 正确返回非零；`npm pack --dry-run` 会触发 `prepack` 自动 build。
+
+已额外用临时 HOME 执行真实 install 验证，确认生成：
+
+```text
+.rolemux/config.toml
+.rolemux/roles/builder.md
+.codex/skills/rolemux-workflow/SKILL.md
+.claude/skills/rolemux-workflow/SKILL.md
+```
 
 2026-05-25 已执行阶段文档与实施文档检查：
 
@@ -100,4 +132,4 @@ Get-ChildItem -Recurse -File -LiteralPath 'docs\progress'
 
 - 真实 `codex`、`claude`、`agy` CLI 参数可能随版本变化，后续必须用 `doctor` 和 adapter 层缓冲。
 - Windows 路径与 shell quoting 是高风险点，后续必须以参数数组执行外部命令。
-- 当前尚未初始化源码工程，`npm test`、`typecheck`、`build` 等验证命令需等 M0 后可用。
+- Windows 下使用 `.cmd` 模拟 provider 时可能被真实全局 CLI 抢先解析；本轮没有执行真实 provider mock run，已通过 provider adapter 参数数组测试、process runner 测试和 CLI dry-run 降低风险。

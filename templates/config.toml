@@ -1,0 +1,31 @@
+# RoleMux default configuration.
+# Copy to ~/.rolemux/config.toml or <project>/.rolemux/config.toml and adjust locally.
+
+default_provider = "codex"
+default_workdir = "."
+task_dir = ".rolemux/tasks"
+timeout_seconds = 600
+
+[install]
+with_agents = false
+overwrite = false
+
+[providers.codex]
+enabled = true
+command = "codex"
+
+[providers.claude]
+enabled = true
+command = "claude"
+
+[providers.agy]
+enabled = true
+command = "agy"
+
+[roles]
+default = "builder"
+architect = "roles/architect.md"
+builder = "roles/builder.md"
+reviewer = "roles/reviewer.md"
+frontend_reviewer = "roles/frontend-reviewer.md"
+summarizer = "roles/summarizer.md"

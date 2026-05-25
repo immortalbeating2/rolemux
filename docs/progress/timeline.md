@@ -24,13 +24,17 @@
 - 新增 `spec/phases/`，将 RoleMux 开发内容拆分为 M0-M6 阶段开发文档。
 - 新增 `spec/implementation/`，将 M0-M6 拆分为阶段实施文档。
 - 更新 `AGENTS.md`，将阶段开发文档、阶段实施文档、阶段读取顺序和退出门禁吸收到项目级规则。
+- 创建开发分支 `feature/complete-rolemux-plugin`。
+- 按 M0-M6 首轮实现 RoleMux MVP：TypeScript CLI 工程、CLI 命令、provider adapter、task artifact、Skill bundle、roles、HTML report、examples、release checklist。
+- 使用 subagents 分担 core/provider/report、CLI commands、Skill/docs/release 和最终只读审查；因部分动态 subagent 工具受限，主会话完成整合与验证。
+- 完成验证：typecheck、test、build、CLI dry-run、真实 install 到临时 HOME、npm pack dry-run、git diff whitespace check。
 
 ## 后续计划
 
-- M0：按 `spec/implementation/m0-project-initialization-plan.md` 初始化 TypeScript CLI 工程。
-- M1：按 `spec/implementation/m1-cli-skeleton-plan.md` 实现 `install`、`doctor`、`run --dry-run`。
-- M2：按 `spec/implementation/m2-provider-adapters-plan.md` 实现 Codex、Claude、Agy provider adapter。
-- M3：按 `spec/implementation/m3-task-artifacts-plan.md` 实现 `.rolemux/tasks/{task-id}` 任务产物。
-- M4：按 `spec/implementation/m4-skill-bundle-plan.md` 实现 Codex/Claude Skill bundle 和默认 role prompts。
-- M5：按 `spec/implementation/m5-workflow-commands-plan.md` 实现 `plan`、`review`、`discuss`、并行执行和 fallback。
-- M6：按 `spec/implementation/m6-reporting-release-plan.md` 完善 HTML report、README、npm 打包与发布准备。
+- M0：已完成首轮实现；后续可补更严格 lint 配置。
+- M1：已完成首轮实现；`install`、`doctor`、`run --dry-run` 可运行。
+- M2：已完成首轮实现；provider adapter 集中在 `src/providers/`，process runner 使用参数数组。
+- M3：已完成首轮实现；task store 可写入 metadata、核心产物和 HTML report。
+- M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
+- M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
+- M6：已完成首轮实现；README、examples、release checklist、npm pack 文件清单已验证。

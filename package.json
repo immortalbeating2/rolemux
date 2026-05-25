@@ -1,0 +1,42 @@
+{
+  "name": "rolemux",
+  "version": "0.1.0",
+  "description": "Lightweight multi-CLI role workflow runner for Codex, Claude, and Agy.",
+  "type": "module",
+  "bin": {
+    "rolemux": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "roles",
+    "templates",
+    "examples",
+    "docs/release",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "prepack": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "dev": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.21.0",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
