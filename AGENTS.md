@@ -14,7 +14,7 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 
 - 项目名称：RoleMux
 - 项目根目录：`C:\Users\peng8\Desktop\Project\Tool\RoleMux`
-- 当前阶段：需求说明、功能清单、流程图、UI 概念图、技术方案、验收标准和测试清单已成稿，准备进入正式工程初始化
+- 当前阶段：需求说明、阶段开发文档、阶段实施文档、开发规范、subagent 角色设置已成稿，准备进入正式工程初始化
 - 产品北极星：`spec/rolemux-development-spec.md`
 - UI 概念图：`spec/assets/rolemux-ui-concept.png`
 - 核心定位：npm/npx 可安装的轻量多 CLI 编排工具，以 Skill 作为入口，以 runner 调用 provider，以 role prompt 赋予职责，以任务目录保存产物
@@ -27,9 +27,11 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 1. 用户直接要求
 2. 本项目 `AGENTS.md`
 3. 产品北极星：`spec/rolemux-development-spec.md`
-4. 进度留痕文档：`docs/progress/status.md`、`docs/progress/timeline.md`、`docs/progress/logs/YYYY-MM-DD.md`
-5. 后续新增的实施计划、架构设计、API/CLI 设计和开发规则文档
-6. 通用工程习惯与辅助技能建议
+4. 阶段开发文档：`spec/phases/README.md` 与 `spec/phases/m*.md`
+5. 阶段实施文档：`spec/implementation/README.md` 与 `spec/implementation/*-plan.md`
+6. 进度留痕文档：`docs/progress/status.md`、`docs/progress/timeline.md`、`docs/progress/logs/YYYY-MM-DD.md`
+7. 后续新增的架构设计、API/CLI 设计和开发规则文档
+8. 通用工程习惯与辅助技能建议
 
 如用户要求、spec 和本文件冲突，以用户要求为准；如实现必须偏离 spec，必须写明偏离原因、影响范围、是否为临时简化，以及后续如何回归。
 
@@ -41,6 +43,7 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 - 未更新必要文档的开发不算完成；影响需求范围、CLI 命令、provider 参数、安装路径、Skill 行为、role prompt、任务产物结构、测试口径或发布流程时，必须同步更新相关文档。
 - 三个留痕文档必须存在并持续维护：`docs/progress/status.md`、`docs/progress/timeline.md`、`docs/progress/logs/YYYY-MM-DD.md`。
 - 大功能开始前必须读取 `spec/rolemux-development-spec.md`，明确目标、成功标准、不做项、文件范围和验证命令。
+- 阶段开发必须读取对应 `spec/phases/m*.md` 和 `spec/implementation/*-plan.md`；未满足当前阶段退出标准，不得进入下一阶段。
 - RoleMux 产品默认不得要求用户项目修改 `AGENTS.md`；`--with-agents` 只能作为显式可选能力。
 - provider adapter 不得散落在 Skill 文档或命令实现里；`codex`、`claude`、`agy` 的真实调用必须集中在 adapter 层。
 - Windows shell quoting 必须谨慎处理；执行外部命令时优先使用参数数组，不拼接可执行 shell 字符串。
@@ -59,11 +62,27 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 - `docs/progress/timeline.md`：跨阶段时间线，记录关键日期、里程碑和状态变化。
 - `docs/progress/logs/YYYY-MM-DD.md`：当日详细开发日志。
 - `spec/rolemux-development-spec.md`：需求、功能、流程图、技术方案、验收标准和测试清单。
+- `spec/phases/README.md`：M0-M6 阶段开发文档索引。
+- `spec/phases/m0-project-initialization.md`：M0 项目初始化阶段目标、范围、产物和退出标准。
+- `spec/phases/m1-cli-skeleton.md`：M1 CLI 骨架阶段目标、范围、产物和退出标准。
+- `spec/phases/m2-provider-adapters.md`：M2 provider adapter 阶段目标、范围、产物和退出标准。
+- `spec/phases/m3-task-artifacts.md`：M3 任务产物阶段目标、范围、产物和退出标准。
+- `spec/phases/m4-skill-bundle.md`：M4 Skill bundle 与默认 roles 阶段目标、范围、产物和退出标准。
+- `spec/phases/m5-workflow-commands.md`：M5 工作流命令阶段目标、范围、产物和退出标准。
+- `spec/phases/m6-reporting-release.md`：M6 报告与发布准备阶段目标、范围、产物和退出标准。
+- `spec/implementation/README.md`：M0-M6 阶段实施文档索引和通用实施门禁。
+- `spec/implementation/m0-project-initialization-plan.md`：M0 具体实施任务、文件范围、验证命令和 subagent 交接。
+- `spec/implementation/m1-cli-skeleton-plan.md`：M1 具体实施任务、文件范围、验证命令和 subagent 交接。
+- `spec/implementation/m2-provider-adapters-plan.md`：M2 具体实施任务、文件范围、验证命令和 subagent 交接。
+- `spec/implementation/m3-task-artifacts-plan.md`：M3 具体实施任务、文件范围、验证命令和 subagent 交接。
+- `spec/implementation/m4-skill-bundle-plan.md`：M4 具体实施任务、文件范围、验证命令和 subagent 交接。
+- `spec/implementation/m5-workflow-commands-plan.md`：M5 具体实施任务、文件范围、验证命令和 subagent 交接。
+- `spec/implementation/m6-reporting-release-plan.md`：M6 具体实施任务、文件范围、验证命令和 subagent 交接。
 - `spec/assets/rolemux-ui-concept.png`：后续报告 UI/TUI/Web UI 的视觉参考。
 - `docs/dev/code-style.md`：代码规范、命名约定、注释约定和提交前检查。
 - `.codex/agents/`：RoleMux 项目本地 subagent 角色设置和 prompt 片段。
 
-后续如新增 `README.md`、`spec/implementation-plans/`、`docs/dev/`、`docs/architecture/` 或 `tests/fixtures/`，应在本节补充入口。
+后续如新增 `README.md`、`docs/architecture/` 或 `tests/fixtures/`，应在本节补充入口。
 
 ## 产品北极星
 
@@ -132,8 +151,8 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 大功能必须遵循：
 
 1. 设计确认：明确目标、成功标准、不做项和关键取舍。
-2. 文档确认或补写：必要时更新 spec、README、实施计划或开发规则。
-3. 实施计划：写明模块边界、文件范围、验证命令和退出条件。
+2. 文档确认或补写：必要时更新总 spec、阶段开发文档、阶段实施文档、README 或开发规则。
+3. 实施计划：读取对应 `spec/implementation/*-plan.md`，写明模块边界、文件范围、验证命令和退出条件。
 4. 实现。
 5. 验证。
 6. 更新 `docs/progress/status.md`、`docs/progress/timeline.md` 或当日日志。
@@ -144,13 +163,13 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 
 当前默认按以下路线推进：
 
-1. M0：项目初始化，完成 package、TypeScript、lint/test/build 基础设施。
-2. M1：CLI 骨架，完成 `install`、`doctor`、`run --dry-run`。
-3. M2：Provider MVP，完成 Codex、Claude、Agy 三个 adapter 的真实调用。
-4. M3：任务产物，完成 `.rolemux/tasks/{task-id}` 保存、metadata、日志、输出。
-5. M4：Skill Bundle，完成 Codex Skill、Claude Skill、默认 roles、安装复制逻辑。
-6. M5：工作流命令，完成 `plan`、`review`、`discuss`、并行执行、fallback。
-7. M6：报告与打包，完成 HTML report、npm publish 准备、README、示例。
+1. M0：项目初始化，完成 package、TypeScript、lint/test/build 基础设施。阶段文档：`spec/phases/m0-project-initialization.md`；实施文档：`spec/implementation/m0-project-initialization-plan.md`。
+2. M1：CLI 骨架，完成 `install`、`doctor`、`run --dry-run`。阶段文档：`spec/phases/m1-cli-skeleton.md`；实施文档：`spec/implementation/m1-cli-skeleton-plan.md`。
+3. M2：Provider MVP，完成 Codex、Claude、Agy 三个 adapter 的真实调用。阶段文档：`spec/phases/m2-provider-adapters.md`；实施文档：`spec/implementation/m2-provider-adapters-plan.md`。
+4. M3：任务产物，完成 `.rolemux/tasks/{task-id}` 保存、metadata、日志、输出。阶段文档：`spec/phases/m3-task-artifacts.md`；实施文档：`spec/implementation/m3-task-artifacts-plan.md`。
+5. M4：Skill Bundle，完成 Codex Skill、Claude Skill、默认 roles、安装复制逻辑。阶段文档：`spec/phases/m4-skill-bundle.md`；实施文档：`spec/implementation/m4-skill-bundle-plan.md`。
+6. M5：工作流命令，完成 `plan`、`review`、`discuss`、并行执行、fallback。阶段文档：`spec/phases/m5-workflow-commands.md`；实施文档：`spec/implementation/m5-workflow-commands-plan.md`。
+7. M6：报告与打包，完成 HTML report、npm publish 准备、README、示例。阶段文档：`spec/phases/m6-reporting-release.md`；实施文档：`spec/implementation/m6-reporting-release-plan.md`。
 
 未达到当前阶段退出标准，不进入下一阶段。若发现 provider 参数、跨平台路径、安装路径或 task artifact 结构明显不成立，允许回退到上一阶段修正。
 
@@ -322,8 +341,12 @@ MVP 必做：
 3. `docs/progress/timeline.md`
 4. 最近一篇 `docs/progress/logs/YYYY-MM-DD.md`
 5. `spec/rolemux-development-spec.md`
-6. `docs/dev/code-style.md`
-7. 与当前任务相关的源码、测试、Skill、role 或配置文件
+6. `spec/phases/README.md`
+7. `spec/implementation/README.md`
+8. 与当前阶段对应的 `spec/phases/m*.md`
+9. 与当前阶段对应的 `spec/implementation/*-plan.md`
+10. `docs/dev/code-style.md`
+11. 与当前任务相关的源码、测试、Skill、role 或配置文件
 
 不要只凭聊天末尾几句直接进入编码。
 
@@ -332,6 +355,8 @@ MVP 必做：
 完成基础接续读取后，必须按任务类型继续读取专题文档和相关代码。若文档不存在，先记录缺口，必要时补写设计或实施计划。
 
 - 产品范围、MVP 边界、验收标准：读取 `spec/rolemux-development-spec.md`。
+- 阶段推进、阶段退出标准：读取 `spec/phases/README.md` 和对应 `spec/phases/m*.md`。
+- 阶段实现、文件范围、验证命令：读取 `spec/implementation/README.md` 和对应 `spec/implementation/*-plan.md`。
 - CLI 命令、参数、帮助信息：读取 `src/cli.ts`、`src/commands/` 和相关测试。
 - Provider adapter：读取 `src/providers/`、`src/core/process-runner.ts` 和 provider 测试。
 - 配置、task artifact、metadata：读取 `src/core/config.ts`、`src/core/task-store.ts` 和相关测试。

@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
 更新时间：2026-05-25
-当前阶段：git 仓库、开发规范与本地 Codex/subagent 角色设置已初始化，尚未进入正式源码工程初始化
+当前阶段：git 仓库、开发规范、本地 Codex/subagent 角色设置、M0-M6 阶段开发文档与阶段实施文档已初始化，尚未进入正式源码工程初始化
 
 ## 当前真实状态
 
@@ -17,6 +17,9 @@
 - 本次新增 `.gitignore`，排除依赖、构建产物、运行日志、环境变量和 `.rolemux/tasks/` 运行产物。
 - 本次新增 `docs/dev/code-style.md`，约束 TypeScript、模块边界、命名、注释和提交前检查。
 - 本次新增 `.codex/agents/`，保存 RoleMux 本地 subagent 角色设置和 prompt 片段。
+- 本次新增 `spec/phases/`，将 M0-M6 拆分为阶段开发文档。
+- 本次新增 `spec/implementation/`，将 M0-M6 拆分为阶段实施文档。
+- 本次更新 `AGENTS.md`，把阶段开发文档、阶段实施文档和读取门禁吸收到项目级规则。
 - 当前还没有 `package.json`、`src/`、`tests/`、`skills/`、`roles/` 等正式工程目录。
 
 ## 产品基线
@@ -35,6 +38,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 - 任何后续开发必须先读取 `AGENTS.md` 和本状态文档。
 - 三个留痕文档必须持续维护：`status.md`、`timeline.md`、`logs/YYYY-MM-DD.md`。
 - 大功能开始前必须读取 `spec/rolemux-development-spec.md`。
+- 阶段开发前必须读取 `spec/phases/README.md`、对应 `spec/phases/m*.md`、`spec/implementation/README.md` 和对应 `spec/implementation/*-plan.md`。
 - 修改源码、测试、Skill 或 role prompt 前必须读取 `docs/dev/code-style.md`。
 - 启用 subagent 前必须读取 `.codex/agents/` 中对应角色设置，并明确文件所有权。
 - 未验证不得声称完成。
@@ -42,13 +46,25 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 
 ## 下一步建议
 
-1. 初始化 Node.js + TypeScript 工程。
-2. 创建 `package.json`、`tsconfig.json`、`src/cli.ts`、基础测试配置。
-3. 实现 `rolemux --help` 和 `rolemux doctor` 的最小骨架。
-4. 为 `doctor` 添加 mock CLI 检测测试。
+1. 按 `spec/phases/m0-project-initialization.md` 和 `spec/implementation/m0-project-initialization-plan.md` 执行 M0。
+2. 初始化 Node.js + TypeScript 工程。
+3. 创建 `package.json`、`tsconfig.json`、`src/cli.ts`、基础测试配置。
+4. 实现 `rolemux --help` 的最小入口。
 5. 更新本状态文档和当日日志。
 
 ## 本次验证记录
+
+2026-05-25 已执行阶段文档与实施文档检查：
+
+```powershell
+(Get-ChildItem -LiteralPath 'spec\phases' -File | Measure-Object).Count
+(Get-ChildItem -LiteralPath 'spec\implementation' -File | Measure-Object).Count
+Select-String -LiteralPath 'AGENTS.md' -Pattern 'spec/phases/README.md','spec/implementation/README.md','m0-project-initialization-plan.md','阶段开发必须读取','Session 接续顺序','阶段推进、阶段退出标准'
+$json = Get-Content -LiteralPath '.codex\agents\agents.json' -Raw | ConvertFrom-Json; $json.rootInstructions | Select-String -Pattern 'spec/phases','spec/implementation'; ($json.agents | Measure-Object).Count
+rg -n "TBD|待验证|将在本轮最终检查后补充|当前尚未初始化 git" AGENTS.md spec docs .codex/agents --glob '!docs/progress/*'
+```
+
+结果：`spec/phases/` 包含 8 个文件，`spec/implementation/` 包含 8 个文件；`AGENTS.md` 已包含阶段/实施文档入口、M0 实施文档、阶段读取门禁和 Session 接续规则；`.codex/agents/agents.json` 可解析并包含阶段/实施文档读取指令；排除进度日志后的占位符扫描未发现残留声明。
 
 2026-05-25 已执行 git、规范文档和 `.codex/agents/` 检查：
 
@@ -84,4 +100,4 @@ Get-ChildItem -Recurse -File -LiteralPath 'docs\progress'
 
 - 真实 `codex`、`claude`、`agy` CLI 参数可能随版本变化，后续必须用 `doctor` 和 adapter 层缓冲。
 - Windows 路径与 shell quoting 是高风险点，后续必须以参数数组执行外部命令。
-- 当前尚未初始化 git 仓库，提交与分支流程暂不可用。
+- 当前尚未初始化源码工程，`npm test`、`typecheck`、`build` 等验证命令需等 M0 后可用。

@@ -6,6 +6,8 @@
     "Read AGENTS.md before starting.",
     "Read docs/progress/status.md, docs/progress/timeline.md, and the latest docs/progress/logs/YYYY-MM-DD.md.",
     "Read spec/rolemux-development-spec.md before major feature work.",
+    "Read spec/phases/README.md and the relevant spec/phases/m*.md before phase work.",
+    "Read spec/implementation/README.md and the relevant spec/implementation/*-plan.md before implementation work.",
     "Read docs/dev/code-style.md before changing TypeScript, Skill, role prompt, or test files.",
     "Do not read, print, or store secrets, tokens, cookies, or private credentials.",
     "Do not use dangerous bypass or sandbox flags unless the user explicitly requests them.",
