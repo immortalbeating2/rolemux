@@ -28,6 +28,9 @@
 - 按 M0-M6 首轮实现 RoleMux MVP：TypeScript CLI 工程、CLI 命令、provider adapter、task artifact、Skill bundle、roles、HTML report、examples、release checklist。
 - 使用 subagents 分担 core/provider/report、CLI commands、Skill/docs/release 和最终只读审查；因部分动态 subagent 工具受限，主会话完成整合与验证。
 - 完成验证：typecheck、test、build、CLI dry-run、真实 install 到临时 HOME、npm pack dry-run、git diff whitespace check。
+- 推送实现分支到 GitHub：`https://github.com/immortalbeating2/rolemux` 的 `feature/complete-rolemux-plugin`。
+- 更新 `README.md` 为 GitHub 首页展示版本，补充中文项目说明、GitHub 安装试用、命令示例、任务产物、Skill 用法、安全默认值和已知限制。
+- 将 `package.json` 的构建钩子调整为 `prepare`，使 GitHub 分支安装时可自动构建 `dist/`。
 
 ## 后续计划
 
@@ -37,4 +40,4 @@
 - M3：已完成首轮实现；task store 可写入 metadata、核心产物和 HTML report。
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
-- M6：已完成首轮实现；README、examples、release checklist、npm pack 文件清单已验证。
+- M6：已完成首轮实现；README、examples、release checklist、GitHub 安装说明、npm pack 文件清单已验证。

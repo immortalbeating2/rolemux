@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "build": "tsup",
-    "prepack": "npm run build",
+    "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "tsc --noEmit",

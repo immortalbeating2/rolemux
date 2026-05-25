@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
 更新时间：2026-05-25
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现，最终审查反馈已处理，等待提交收口
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；实现分支已推送到 GitHub，README 已更新为 GitHub 首页展示版本
 
 ## 当前真实状态
 
@@ -25,6 +25,9 @@
 - 已实现 core/provider/report 模块：provider adapter、process runner、task store、metadata、fallback、prompt builder、HTML report。
 - 已新增 Codex/Claude Skill bundle、默认 roles、config/report 模板、examples 和 release checklist。
 - 当前开发分支：`feature/complete-rolemux-plugin`。
+- 已推送远程仓库：`https://github.com/immortalbeating2/rolemux`。
+- 已更新 `README.md`，补充项目定位、当前状态、GitHub 分支安装、常用命令、任务产物、Skill 用法、开发验证和安全默认值。
+- 已在 `package.json` 增加 `prepare` 脚本，支持从 GitHub 安装时自动构建 `dist/`。
 
 ## 产品基线
 
@@ -50,9 +53,9 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 
 ## 下一步建议
 
-1. 提交 `feature/complete-rolemux-plugin` 当前实现。
-2. 根据用户选择决定是否合并回 `main`。
-3. 后续补充真实 provider mock run 的跨平台执行策略。
+1. 根据用户选择决定是否将 `feature/complete-rolemux-plugin` 合并或同步为远程默认分支。
+2. 后续补充真实 provider mock run 的跨平台执行策略。
+3. npm 正式发布前，继续使用 GitHub 分支或源码安装方式试用。
 
 ## 本次验证记录
 

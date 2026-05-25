@@ -1,137 +1,193 @@
 # RoleMux
 
-RoleMux is a lightweight multi-CLI workflow runner for coordinating Codex, Claude, and Agy through role prompts and auditable task artifacts.
+RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `codex`、`claude`、`agy` 等 CLI 按角色组织起来，完成规划、实现、审查、讨论和结果留痕。
 
-It is intentionally small: RoleMux provides a CLI, provider adapters, role prompts, Skill bundles, and task output directories. It is not a workflow platform, cloud service, or dashboard.
+它不是云端 agent 平台，也不是完整 workflow dashboard。RoleMux 的核心目标是保持轻量：一个 npm CLI、几个 provider adapter、一组 role prompts、Codex/Claude Skill bundle，以及可审计的任务产物目录。
 
-## What It Does
+## 当前状态
 
-- Installs default config, roles, and Codex/Claude Skill files.
-- Checks provider availability with `rolemux doctor`.
-- Runs a task with a selected provider and role.
-- Supports dry-run previews before invoking provider CLIs.
-- Saves task artifacts under `.rolemux/tasks/{task-id}/`.
-- Keeps provider-specific command details inside RoleMux adapters.
+- 阶段：MVP 首轮实现完成。
+- 当前可用分支：`feature/complete-rolemux-plugin`。
+- 当前安装方式：推荐从 GitHub 源码或当前分支安装试用。
+- npm 状态：尚未正式发布到 npm；发布后才推荐直接使用 `npx rolemux install`。
+- 默认安全边界：不会默认修改用户项目的 `AGENTS.md`，不会默认使用危险 bypass/sandbox 参数。
 
-## Requirements
+## 已实现功能
 
-- Node.js 20 or newer.
-- PowerShell on Windows, or a POSIX shell on macOS/Linux.
-- Optional provider CLIs installed locally: `codex`, `claude`, and `agy`.
+- `rolemux install`：安装默认配置、roles、Codex Skill、Claude Skill。
+- `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
+- `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`。
+- `rolemux plan`：让一个或多个 provider 生成计划。
+- `rolemux review`：让指定 provider 以 reviewer 角色审查任务。
+- `rolemux discuss`：生成多 provider 讨论工作流，支持 `parallel` / `serial` 模式。
+- `rolemux status`：查看最近任务产物摘要。
+- `rolemux clean`：清理任务产物，支持 dry-run。
+- `.rolemux/tasks/{task-id}/`：保存任务输入、prompt、输出、stderr、metadata 和 HTML report。
+- 默认 roles：`architect`、`builder`、`reviewer`、`frontend-reviewer`、`summarizer`。
 
-## Install
+## 工作原理
 
-Use the package directly with `npx`:
+RoleMux 分为四层：
 
-```powershell
-npx rolemux install
+1. CLI command layer：解析命令参数并输出结果。
+2. Core layer：处理 prompt 构建、role 加载、任务存储、fallback、进程执行。
+3. Provider adapter layer：集中封装 `codex`、`claude`、`agy` 的真实命令和参数。
+4. Skill/role layer：给 Codex 和 Claude 提供触发说明，并给不同任务注入角色提示词。
+
+核心目录：
+
+```text
+src/commands/      CLI 命令实现
+src/core/          prompt、task store、process runner、fallback 等核心逻辑
+src/providers/     codex、claude、agy provider adapter
+skills/            Codex / Claude Skill bundle
+roles/             默认角色 prompt
+templates/         默认配置和 report 模板
+examples/          示例任务和 mock provider 说明
+docs/release/      发布检查清单
 ```
 
-Or install globally:
+## 环境要求
+
+- Node.js 20 或更高版本。
+- Windows PowerShell、macOS shell 或 Linux shell。
+- 可选安装本地 provider CLI：`codex`、`claude`、`agy`。
+
+没有安装 provider CLI 也可以先使用 `--dry-run` 验证命令、prompt 和安装目标。
+
+## 从 GitHub 安装试用
+
+当前仓库还没有发布 npm 包，推荐先从 GitHub 分支安装。
+
+直接全局安装当前实现分支：
 
 ```powershell
-npm install -g rolemux
-rolemux install
+npm install -g github:immortalbeating2/rolemux#feature/complete-rolemux-plugin
+rolemux --help
 ```
 
-Preview install targets without writing files:
+或者克隆源码后本地运行：
+
+```powershell
+git clone https://github.com/immortalbeating2/rolemux.git
+cd rolemux
+git checkout feature/complete-rolemux-plugin
+npm install
+npm run build
+node .\dist\cli.js --help
+```
+
+本地开发时也可以链接成全局命令：
+
+```powershell
+npm link
+rolemux --help
+```
+
+## 初始化 RoleMux
+
+预览将要安装的文件，不写入：
 
 ```powershell
 rolemux install --dry-run
 ```
 
-By default RoleMux installs its own config, roles, and Skill files. It does not modify a user project `AGENTS.md`. Any future `--with-agents` behavior is explicit opt-in.
+执行安装：
 
-## Basic Commands
+```powershell
+rolemux install
+```
 
-Check provider availability:
+默认会写入：
+
+```text
+~/.rolemux/config.toml
+~/.rolemux/roles/
+~/.codex/skills/rolemux-workflow/
+~/.claude/skills/rolemux-workflow/
+```
+
+默认不会修改用户项目的 `AGENTS.md`。如后续启用 `--with-agents`，也应作为显式 opt-in 行为。
+
+## 常用命令
+
+检查 provider：
 
 ```powershell
 rolemux doctor
 ```
 
-Preview a single provider run:
+只检查 Codex：
+
+```powershell
+rolemux doctor --providers codex
+```
+
+预览单 provider 任务：
 
 ```powershell
 rolemux run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
-Ask multiple providers for a plan:
+让 Codex 和 Claude 生成计划：
 
 ```powershell
-rolemux plan --providers claude,codex --task .\examples\basic-task.md --workdir . --dry-run
+rolemux plan --providers codex,claude --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
-Request a review:
+让 Codex 执行审查：
 
 ```powershell
 rolemux review --provider codex --role reviewer --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
-Run a parallel discussion preview:
+预览多 provider 讨论：
 
 ```powershell
-rolemux discuss --providers claude,codex,agy --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
+rolemux discuss --providers codex,claude,agy --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
 
-## Roles
+查看任务产物：
 
-Default roles live in `roles/`:
-
-- `architect`: turns requirements into a scoped implementation plan.
-- `builder`: implements a focused change inside the delegated boundary.
-- `reviewer`: reviews correctness, regressions, security, portability, and validation.
-- `frontend-reviewer`: reviews UI behavior, accessibility, layout, and visual states.
-- `summarizer`: condenses task outputs, evidence, and risks into a handoff.
-
-Roles are intentionally conservative. They should not encourage broad rewrites, unsafe permissions, secret inspection, or unrequested changes to user projects.
-
-## Skill Usage
-
-RoleMux ships Skill bundles for Codex and Claude:
-
-```text
-skills/codex/rolemux-workflow/SKILL.md
-skills/claude/rolemux-workflow/SKILL.md
+```powershell
+rolemux status --workdir .
 ```
 
-The Skill should trigger when a user asks for multi-CLI collaboration, role-based delegation, external planning, review, discussion, or saved RoleMux artifacts.
+清理任务产物预览：
 
-The Skill calls RoleMux commands such as `rolemux run`, `rolemux plan`, `rolemux review`, and `rolemux discuss`. It should not hardcode low-level provider flags; provider-specific command construction belongs in the adapter layer.
+```powershell
+rolemux clean --workdir . --dry-run
+```
 
-## Task Artifacts
+## 任务产物
 
-A real run writes artifacts under:
+真实运行会写入：
 
 ```text
 .rolemux/tasks/{task-id}/
 ```
 
-Expected MVP files:
+主要文件：
 
-- `task.md`
-- `prompt.md`
-- `output.md`
-- `metadata.json`
+- `task.md`：原始任务内容。
+- `prompt.md`：最终发送给 provider 的 prompt。
+- `output.md`：provider 输出。
+- `stderr.log`：错误输出。
+- `metadata.json`：provider、role、状态、退出码、时间和 fallback attempts。
+- `report.html`：静态 HTML 报告。
 
-Provider-specific details may be saved under `runs/` when a workflow uses more than one provider.
+## 配置
 
-## Configuration
+默认配置模板在 `templates/config.toml`。
 
-The default template is `templates/config.toml`.
-
-Core fields:
+示例：
 
 ```toml
 default_provider = "codex"
 default_workdir = "."
 task_dir = ".rolemux/tasks"
 timeout_seconds = 600
-```
 
-Provider command names are configurable:
-
-```toml
 [providers.codex]
 enabled = true
 command = "codex"
@@ -145,25 +201,34 @@ enabled = true
 command = "agy"
 ```
 
-## Examples
+## Skill 用法
 
-Use the basic task file:
+RoleMux 包含两个 Skill bundle：
 
-```powershell
-rolemux run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
+```text
+skills/codex/rolemux-workflow/SKILL.md
+skills/claude/rolemux-workflow/SKILL.md
 ```
 
-See `examples/mock-provider/README.md` for a mock-provider testing flow that avoids real AI CLI calls.
+这些 Skill 用于在 Codex 或 Claude 中触发 RoleMux，例如用户要求：
 
-## Development
+- 多 CLI 协作
+- 用不同角色并行分析
+- 让外部 provider 生成计划或审查
+- 保存可审计任务产物
+- 进行 Codex / Claude / Agy 多方讨论
 
-Install dependencies:
+Skill 只负责说明何时调用 `rolemux`，provider 的底层参数仍由 `src/providers/` adapter 层统一封装。
+
+## 开发
+
+安装依赖：
 
 ```powershell
 npm install
 ```
 
-Run checks:
+运行检查：
 
 ```powershell
 npm run typecheck
@@ -172,7 +237,7 @@ npm run build
 git diff --check
 ```
 
-Release candidates should also run:
+发布前检查：
 
 ```powershell
 npm pack --dry-run
@@ -181,21 +246,25 @@ node .\dist\cli.js doctor
 node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
-See `docs/release/checklist.md` for the release checklist.
+更多发布检查见 `docs/release/checklist.md`。
 
-## Safety Defaults
+## 安全默认值
 
-- RoleMux does not use dangerous sandbox bypass flags by default.
-- Dry-run commands should not invoke real provider CLIs.
-- Provider adapters own provider-specific arguments.
-- Tests should use fixtures, temporary directories, or mock executables.
-- RoleMux should not read, log, or print secrets, tokens, cookies, private account data, or credential files.
-- User project `AGENTS.md` changes are not required for the default workflow.
+- 默认不读取、记录或输出 secrets、tokens、cookies、私有账号信息或凭据文件。
+- 默认不修改用户项目 `AGENTS.md`。
+- 默认不使用危险 sandbox bypass 参数。
+- 外部命令通过 provider adapter 和参数数组集中构造。
+- 测试优先使用 dry-run、fixture、临时目录或 mock provider。
+- `.rolemux/tasks/` 运行产物不应提交到仓库。
 
-## Known Limitations
+## 已知限制
 
-- MVP focuses on local CLI orchestration and static artifacts.
-- Full Web dashboard, cloud workflow service, plugin marketplace, and account system are out of scope.
-- Provider CLI flags may change over time; adapter behavior should be verified with `rolemux doctor` and mock-provider tests.
-- Cross-platform path handling, especially Windows paths with spaces, must remain part of release verification.
-- Before publishing, run the release checklist and confirm `npm pack --dry-run` excludes local artifacts and credentials.
+- 当前是 MVP，本地 CLI 编排和静态产物优先。
+- npm 包尚未正式发布，当前推荐从 GitHub 分支或源码安装。
+- 真实 provider CLI 参数可能随版本变化，需要通过 adapter 层持续维护。
+- 完整 Web dashboard、云端 workflow 服务、插件市场和账号系统不在 MVP 范围内。
+- Windows 路径、空格路径和 shell quoting 需要持续纳入发布验证。
+
+## License
+
+MIT
