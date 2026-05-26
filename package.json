@@ -21,6 +21,8 @@
     "prepare": "npm run build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "npm run build && vitest run --config vitest.e2e.config.ts",
+    "verify:release": "npm run typecheck && npm test && npm run test:e2e && npm pack --dry-run && git diff --check",
     "lint": "tsc --noEmit",
     "dev": "tsx src/cli.ts"
   },

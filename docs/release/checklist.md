@@ -17,6 +17,7 @@ Run from the repository root:
 npm install
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 node .\dist\cli.js --help
 node .\dist\cli.js doctor
@@ -29,7 +30,8 @@ git diff --check
 
 Expected result:
 
-- Typecheck, tests, and build exit with code `0`.
+- Typecheck, tests, e2e tests, and build exit with code `0`.
+- `test:e2e` uses a mock provider and isolated temporary HOME/workdir to exercise install, non-dry-run run, status, clean, and uninstall.
 - `install --dry-run` lists config, roles, and Codex/Claude Skill targets without writing files.
 - `uninstall --dry-run` lists config, roles, and Codex/Claude Skill targets without deleting files.
 - `run --dry-run` prints the provider command preview without invoking a real provider.
@@ -76,6 +78,14 @@ Verify:
 - [ ] Role prompts are conservative and role-specific.
 - [ ] Known limitations and non-MVP items are documented.
 - [ ] Validation evidence is recorded in the release notes or progress log by the release owner.
+
+## E2E Checks
+
+- [ ] `npm run test:e2e` passes from a clean checkout after dependency install.
+- [ ] The mock provider output is written to `.rolemux/tasks/{task-id}/output.md`.
+- [ ] `status` reads the generated task artifact.
+- [ ] `clean` removes generated task directories.
+- [ ] `uninstall` removes RoleMux install targets from the isolated HOME.
 
 ## Security Checks
 

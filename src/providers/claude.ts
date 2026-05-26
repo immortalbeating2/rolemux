@@ -1,4 +1,5 @@
 import { ProviderAdapter, ProviderCommand, ProviderCommandInput } from './provider.js';
+import { applyProviderCommandOverride } from './command-overrides.js';
 
 /** Claude CLI adapter. */
 export const claudeAdapter: ProviderAdapter = {
@@ -9,10 +10,11 @@ export const claudeAdapter: ProviderAdapter = {
     supportsWorkdir: true
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
+    const command = applyProviderCommandOverride('claude', this.executable, ['-p', '--output-format', 'text', input.prompt]);
     return {
       provider: 'claude',
-      executable: this.executable,
-      args: ['-p', '--output-format', 'text', input.prompt],
+      executable: command.executable,
+      args: command.args,
       cwd: input.workdir
     };
   }

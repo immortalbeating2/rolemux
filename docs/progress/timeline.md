@@ -37,6 +37,8 @@
 - 使用 Superpowers 的 TDD 流程补充 `rolemux uninstall`。
 - 新增 `src/commands/uninstall.ts`，支持 `--dry-run` 与 `--keep-config`。
 - 更新 CLI 命令表、README、release checklist 和产品 spec，明确卸载边界：只删除 RoleMux 明确安装的 config、roles 与 Skill bundle，不删除用户项目文件或 `AGENTS.md`。
+- 新增发布前 E2E 验收：`npm run test:e2e` 使用 `tests/fixtures/mock-provider.mjs` 覆盖 install、非 dry-run run、status、clean、uninstall。
+- 新增 `npm run verify:release`，串联 typecheck、unit test、E2E、npm pack dry-run 和 whitespace check。
 
 ## 后续计划
 

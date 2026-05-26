@@ -498,6 +498,7 @@ command = "agy"
 - `rolemux doctor` 在 CLI 存在/缺失时输出正确。
 - `rolemux run --dry-run` 不创建真实运行输出。
 - `rolemux run` 能完整生成任务产物。
+- `npm run test:e2e` 使用 mock provider 完成 install -> run -> status -> clean -> uninstall 发布验收流。
 
 ### 15.3 端到端测试
 
@@ -512,6 +513,7 @@ command = "agy"
 - `npm pack` 包含必要文件。
 - 全局安装后 `rolemux` 命令可用。
 - `rolemux uninstall --dry-run` 可用。
+- `npm run verify:release` 可执行 typecheck、unit test、E2E、pack dry-run 和 whitespace check。
 - `npx rolemux doctor` 可用。
 - README 示例命令可复制执行。
 

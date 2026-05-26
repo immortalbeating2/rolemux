@@ -1,4 +1,5 @@
 import { ProviderAdapter, ProviderCommand, ProviderCommandInput } from './provider.js';
+import { applyProviderCommandOverride } from './command-overrides.js';
 
 /** Antigravity/Agy CLI adapter. */
 export const agyAdapter: ProviderAdapter = {
@@ -9,10 +10,11 @@ export const agyAdapter: ProviderAdapter = {
     supportsWorkdir: true
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
+    const command = applyProviderCommandOverride('agy', this.executable, ['-p', '--add-dir', input.workdir, input.prompt]);
     return {
       provider: 'agy',
-      executable: this.executable,
-      args: ['-p', '--add-dir', input.workdir, input.prompt],
+      executable: command.executable,
+      args: command.args,
       cwd: input.workdir
     };
   }

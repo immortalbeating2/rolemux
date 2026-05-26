@@ -6,6 +6,21 @@ This example describes the minimal local setup for testing RoleMux without invok
 
 Use mock provider executables when validating RoleMux command construction, task artifact creation, and report generation. The mock should print deterministic text, return a known exit code, and avoid network calls or account credentials.
 
+The automated release-flow E2E test uses:
+
+```text
+tests/fixtures/mock-provider.mjs
+```
+
+It runs the compiled CLI with provider command overrides:
+
+```powershell
+$env:ROLEMUX_PROVIDER_CODEX_COMMAND = "node"
+$env:ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = "tests/fixtures/mock-provider.mjs"
+```
+
+`ROLEMUX_PROVIDER_<PROVIDER>_COMMAND` replaces the provider executable. `ROLEMUX_PROVIDER_<PROVIDER>_ARGS_PREFIX` prepends semicolon-separated arguments before adapter-generated args, which avoids fragile `.cmd` wrappers on Windows.
+
 ## Suggested Flow
 
 From the repository root:
@@ -13,11 +28,10 @@ From the repository root:
 ```powershell
 npm install
 npm run build
-node .\dist\cli.js doctor
-node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
+npm run test:e2e
 ```
 
-For integration tests, place mock executables in a temporary directory and prepend that directory to `PATH`. Keep the mock behavior simple:
+For manual integration tests, prefer provider command overrides instead of temporary `.cmd` wrappers on Windows. Keep the mock behavior simple:
 
 - `codex` mock prints the received arguments and exits `0`.
 - `claude` mock prints the received arguments and exits `0`.

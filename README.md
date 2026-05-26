@@ -265,6 +265,7 @@ npm install
 ```powershell
 npm run typecheck
 npm test
+npm run test:e2e
 npm run build
 git diff --check
 ```
@@ -272,9 +273,17 @@ git diff --check
 发布前检查：
 
 ```powershell
+npm run verify:release
+```
+
+或者手动执行：
+
+```powershell
 npm pack --dry-run
 node .\dist\cli.js --help
 node .\dist\cli.js doctor
+node .\dist\cli.js install --dry-run
+node .\dist\cli.js uninstall --dry-run
 node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
