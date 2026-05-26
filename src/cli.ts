@@ -8,6 +8,7 @@ import { planCommand } from './commands/plan.js';
 import { reviewCommand } from './commands/review.js';
 import { runCommand } from './commands/run.js';
 import { statusCommand } from './commands/status.js';
+import { uninstallCommand } from './commands/uninstall.js';
 
 /**
  * 创建 RoleMux Commander 实例，供 CLI 入口和测试复用。
@@ -30,6 +31,19 @@ export function createCli(): Command {
         projectDir: process.cwd(),
         dryRun: options.dryRun === true,
         withAgents: options.withAgents === true
+      });
+      printJson(result);
+    });
+
+  cli.command('uninstall')
+    .description('remove RoleMux config, roles, and skill bundles')
+    .option('--dry-run', 'preview uninstall targets without deleting files')
+    .option('--keep-config', 'preserve ~/.rolemux/config.toml')
+    .action(async options => {
+      const result = await uninstallCommand({
+        homeDir: process.env.HOME ?? process.env.USERPROFILE ?? process.cwd(),
+        dryRun: options.dryRun === true,
+        keepConfig: options.keepConfig === true
       });
       printJson(result);
     });

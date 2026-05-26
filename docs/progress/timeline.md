@@ -32,10 +32,16 @@
 - 更新 `README.md` 为 GitHub 首页展示版本，补充中文项目说明、GitHub 安装试用、命令示例、任务产物、Skill 用法、安全默认值和已知限制。
 - 将 `package.json` 的构建钩子调整为 `prepare`，使 GitHub 分支安装时可自动构建 `dist/`。
 
+## 2026-05-26
+
+- 使用 Superpowers 的 TDD 流程补充 `rolemux uninstall`。
+- 新增 `src/commands/uninstall.ts`，支持 `--dry-run` 与 `--keep-config`。
+- 更新 CLI 命令表、README、release checklist 和产品 spec，明确卸载边界：只删除 RoleMux 明确安装的 config、roles 与 Skill bundle，不删除用户项目文件或 `AGENTS.md`。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。
-- M1：已完成首轮实现；`install`、`doctor`、`run --dry-run` 可运行。
+- M1：已完成首轮实现；`install`、`uninstall`、`doctor`、`run --dry-run` 可运行。
 - M2：已完成首轮实现；provider adapter 集中在 `src/providers/`，process runner 使用参数数组。
 - M3：已完成首轮实现；task store 可写入 metadata、核心产物和 HTML report。
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。

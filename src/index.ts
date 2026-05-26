@@ -7,3 +7,4 @@ export { planCommand } from './commands/plan.js';
 export { reviewCommand } from './commands/review.js';
 export { runCommand } from './commands/run.js';
 export { statusCommand } from './commands/status.js';
+export { uninstallCommand } from './commands/uninstall.js';

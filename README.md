@@ -15,6 +15,7 @@ RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `co
 ## 已实现功能
 
 - `rolemux install`：安装默认配置、roles、Codex Skill、Claude Skill。
+- `rolemux uninstall`：卸载 RoleMux 安装的配置、roles 和 Skill bundle，支持 dry-run。
 - `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
 - `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`。
 - `rolemux plan`：让一个或多个 provider 生成计划。
@@ -108,6 +109,37 @@ rolemux install
 ```
 
 默认不会修改用户项目的 `AGENTS.md`。如后续启用 `--with-agents`，也应作为显式 opt-in 行为。
+
+## 卸载 RoleMux
+
+预览卸载目标，不删除文件：
+
+```powershell
+rolemux uninstall --dry-run
+```
+
+执行卸载：
+
+```powershell
+rolemux uninstall
+```
+
+保留全局配置，只卸载 roles 和 Skill bundle：
+
+```powershell
+rolemux uninstall --keep-config
+```
+
+默认卸载目标：
+
+```text
+~/.rolemux/config.toml
+~/.rolemux/roles/
+~/.codex/skills/rolemux-workflow/
+~/.claude/skills/rolemux-workflow/
+```
+
+卸载命令不会删除用户项目文件，不会修改 `AGENTS.md`，也不会删除 `~/.rolemux` 下未列入目标的自定义文件。
 
 ## 常用命令
 
@@ -253,6 +285,7 @@ node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-t
 - 默认不读取、记录或输出 secrets、tokens、cookies、私有账号信息或凭据文件。
 - 默认不修改用户项目 `AGENTS.md`。
 - 默认不使用危险 sandbox bypass 参数。
+- `uninstall` 只删除 RoleMux 明确安装的目标路径，保留未列入目标的用户自定义文件。
 - 外部命令通过 provider adapter 和参数数组集中构造。
 - 测试优先使用 dry-run、fixture、临时目录或 mock provider。
 - `.rolemux/tasks/` 运行产物不应提交到仓库。

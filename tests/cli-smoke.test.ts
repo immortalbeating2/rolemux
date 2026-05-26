@@ -8,4 +8,11 @@ describe('CLI smoke', () => {
     expect(cli.name()).toBe('rolemux');
     expect(cli.description()).toContain('multi-CLI');
   });
+
+  test('registers install and uninstall lifecycle commands', () => {
+    const cli = createCli();
+    const commandNames = cli.commands.map(command => command.name());
+
+    expect(commandNames).toEqual(expect.arrayContaining(['install', 'uninstall']));
+  });
 });

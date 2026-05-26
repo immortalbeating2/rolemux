@@ -88,6 +88,7 @@ RoleMux 应提供三层能力：
 ### 5.1 MVP 功能
 
 - `rolemux install`：安装默认配置、roles、Codex Skill、Claude Skill。
+- `rolemux uninstall`：卸载 RoleMux 安装的 config、roles 和 Skill bundle，支持 dry-run 与保留 config。
 - `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
 - `rolemux run`：按 provider + role 执行一次任务。
 - `rolemux plan`：让指定 provider 生成方案。
@@ -118,6 +119,11 @@ npx rolemux install
 # 全局安装
 npm install -g rolemux
 rolemux install
+
+# 卸载 RoleMux 安装内容
+rolemux uninstall --dry-run
+rolemux uninstall
+rolemux uninstall --keep-config
 
 # 检查环境
 rolemux doctor
@@ -436,6 +442,9 @@ command = "agy"
 - Codex Skill 被复制到正确目录。
 - Claude Skill 被复制到正确目录。
 - 重复执行 install 不破坏用户已有配置。
+- `rolemux uninstall --dry-run` 可列出将删除的 config、roles 和 Skill 目录，不产生删除副作用。
+- `rolemux uninstall` 只删除 RoleMux 明确安装的路径，不删除用户项目文件和 `AGENTS.md`。
+- `rolemux uninstall --keep-config` 保留 `~/.rolemux/config.toml`。
 
 ### 14.2 环境验收
 
@@ -502,6 +511,7 @@ command = "agy"
 
 - `npm pack` 包含必要文件。
 - 全局安装后 `rolemux` 命令可用。
+- `rolemux uninstall --dry-run` 可用。
 - `npx rolemux doctor` 可用。
 - README 示例命令可复制执行。
 

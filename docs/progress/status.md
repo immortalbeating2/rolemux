@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
-更新时间：2026-05-25
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；实现分支已推送到 GitHub，README 已更新为 GitHub 首页展示版本
+更新时间：2026-05-26
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；安装生命周期已补齐 `uninstall` 命令并完成验证
 
 ## 当前真实状态
 
@@ -28,6 +28,7 @@
 - 已推送远程仓库：`https://github.com/immortalbeating2/rolemux`。
 - 已更新 `README.md`，补充项目定位、当前状态、GitHub 分支安装、常用命令、任务产物、Skill 用法、开发验证和安全默认值。
 - 已在 `package.json` 增加 `prepare` 脚本，支持从 GitHub 安装时自动构建 `dist/`。
+- 本轮新增 `rolemux uninstall`，支持 `--dry-run` 和 `--keep-config`，用于卸载 RoleMux 安装的 config、roles、Codex Skill 和 Claude Skill。
 
 ## 产品基线
 
@@ -53,9 +54,9 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 
 ## 下一步建议
 
-1. 根据用户选择决定是否将 `feature/complete-rolemux-plugin` 合并或同步为远程默认分支。
-2. 后续补充真实 provider mock run 的跨平台执行策略。
-3. npm 正式发布前，继续使用 GitHub 分支或源码安装方式试用。
+1. 提交并推送 `uninstall` 当前实现分支。
+2. 根据用户选择决定是否将 `feature/complete-rolemux-plugin` 合并或同步为远程默认分支。
+3. 后续补充真实 provider mock run 的跨平台执行策略。
 
 ## 本次验证记录
 

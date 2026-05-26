@@ -21,6 +21,7 @@ npm run build
 node .\dist\cli.js --help
 node .\dist\cli.js doctor
 node .\dist\cli.js install --dry-run
+node .\dist\cli.js uninstall --dry-run
 node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 npm pack --dry-run
 git diff --check
@@ -30,6 +31,7 @@ Expected result:
 
 - Typecheck, tests, and build exit with code `0`.
 - `install --dry-run` lists config, roles, and Codex/Claude Skill targets without writing files.
+- `uninstall --dry-run` lists config, roles, and Codex/Claude Skill targets without deleting files.
 - `run --dry-run` prints the provider command preview without invoking a real provider.
 - `npm pack --dry-run` includes `dist`, `skills`, `roles`, `templates`, `examples`, `docs/release/checklist.md`, and `README.md`.
 
@@ -55,6 +57,7 @@ npm install -g .\rolemux-0.1.0.tgz
 rolemux --help
 rolemux doctor
 rolemux install --dry-run
+rolemux uninstall --dry-run
 rolemux run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
@@ -63,11 +66,12 @@ Verify:
 - [ ] Global `rolemux` command resolves.
 - [ ] `doctor` reports provider availability or missing-provider guidance.
 - [ ] Install does not overwrite existing config, roles, or Skill files unless an explicit overwrite option is used.
+- [ ] Uninstall dry-run lists only RoleMux-owned config, roles, and Skill bundle paths.
 - [ ] Dry-run commands do not create real task output in user projects.
 
 ## Documentation Checks
 
-- [ ] README install, doctor, run, Skill, example, and limitation sections match the implemented CLI.
+- [ ] README install, uninstall, doctor, run, Skill, example, and limitation sections match the implemented CLI.
 - [ ] Skill docs describe trigger conditions and RoleMux CLI calls only.
 - [ ] Role prompts are conservative and role-specific.
 - [ ] Known limitations and non-MVP items are documented.
