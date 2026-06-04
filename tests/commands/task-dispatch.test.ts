@@ -117,6 +117,20 @@ describe('task dispatch commands', () => {
     }
   });
 
+  test('dispatch respects codex:1 concurrency limit', async () => {
+    const result = await runSlowDispatch('codex:1');
+
+    expect(result.status).toBe('success');
+    expect(result.maxConcurrency).toBe(1);
+  });
+
+  test('dispatch respects codex:2 concurrency limit', async () => {
+    const result = await runSlowDispatch('codex:2');
+
+    expect(result.status).toBe('success');
+    expect(result.maxConcurrency).toBeLessThanOrEqual(2);
+  });
+
   test('dispatch executes isolated subtasks in git worktrees and collects diff', async () => {
     const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
     const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
@@ -197,6 +211,35 @@ describe('task dispatch commands', () => {
     expect(result.nextCommands[0]).toContain('--subtasks two');
   });
 
+  test('merge rejects dry-run with auto-merge', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge conflicting flags '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+
+    await expect(mergeCommand({
+      parentTask: 'parent',
+      workdir,
+      dryRun: true,
+      autoMerge: true
+    })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT'
+    });
+  });
+
+  test('merge rejects empty selected subtasks', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge empty selected command '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+
+    await expect(mergeCommand({
+      parentTask: 'parent',
+      workdir,
+      dryRun: true,
+      autoMerge: false,
+      subtasks: []
+    })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT'
+    });
+  });
+
   test('merge auto-merge applies clean patch artifacts', async () => {
     const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge auto '));
     await initRepo(workdir);
@@ -240,6 +283,77 @@ function restoreEnv(name: string, oldValue: string | undefined): void {
     return;
   }
   process.env[name] = oldValue;
+}
+
+async function runSlowDispatch(providers: string): Promise<{ status: string; maxConcurrency: number }> {
+  const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+  const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+  const oldLog = process.env.ROLEMUX_SLOW_PROVIDER_LOG;
+  const oldDelay = process.env.ROLEMUX_SLOW_PROVIDER_DELAY_MS;
+  process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+  process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = resolve('tests/fixtures/slow-provider.mjs');
+
+  try {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch slow '));
+    const logPath = join(workdir, 'slow-provider.jsonl');
+    process.env.ROLEMUX_SLOW_PROVIDER_LOG = logPath;
+    process.env.ROLEMUX_SLOW_PROVIDER_DELAY_MS = '120';
+    const manifestPath = join(workdir, 'rolemux-tasks.json');
+    await writeFile(manifestPath, JSON.stringify({
+      version: 1,
+      parentTask: { title: 'Dispatch slow work' },
+      subtasks: [
+        { id: 'one', title: 'One', task: 'Slow one.', writePolicy: 'readonly' },
+        { id: 'two', title: 'Two', task: 'Slow two.', writePolicy: 'readonly' },
+        { id: 'three', title: 'Three', task: 'Slow three.', writePolicy: 'readonly' },
+        { id: 'four', title: 'Four', task: 'Slow four.', writePolicy: 'readonly' }
+      ]
+    }), 'utf8');
+
+    const result = await dispatchCommand({
+      manifest: manifestPath,
+      providers,
+      workdir,
+      dryRun: false
+    });
+    const events = parseSlowProviderEvents(await readFile(logPath, 'utf8'));
+
+    return {
+      status: result.status,
+      maxConcurrency: computeMaxConcurrency(events)
+    };
+  } finally {
+    restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
+    restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+    restoreEnv('ROLEMUX_SLOW_PROVIDER_LOG', oldLog);
+    restoreEnv('ROLEMUX_SLOW_PROVIDER_DELAY_MS', oldDelay);
+  }
+}
+
+function parseSlowProviderEvents(raw: string): { event: 'start' | 'end'; time: number }[] {
+  return raw.trim().split(/\r?\n/).filter(Boolean).map(line => {
+    const event = JSON.parse(line) as { event: 'start' | 'end'; time: number };
+    return {
+      event: event.event,
+      time: event.time
+    };
+  });
+}
+
+function computeMaxConcurrency(events: readonly { event: 'start' | 'end'; time: number }[]): number {
+  let active = 0;
+  let max = 0;
+  const sorted = [...events].sort((left, right) => {
+    if (left.time !== right.time) {
+      return left.time - right.time;
+    }
+    return left.event === 'end' ? -1 : 1;
+  });
+  for (const event of sorted) {
+    active += event.event === 'start' ? 1 : -1;
+    max = Math.max(max, active);
+  }
+  return max;
 }
 
 async function initRepo(repo: string): Promise<void> {

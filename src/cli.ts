@@ -127,7 +127,7 @@ export function createCli(): Command {
       printJson(await mergeCommand({
         parentTask: options.parentTask,
         workdir: options.workdir,
-        subtasks: parseCsv(options.subtasks),
+        subtasks: parseMergeSubtasks(options.subtasks),
         dryRun: options.dryRun === true,
         autoMerge: options.autoMerge === true
       }));
@@ -252,6 +252,18 @@ export async function main(argv = process.argv): Promise<void> {
 
 function parseCsv(value: string | undefined): string[] | undefined {
   return value?.split(',').map(item => item.trim()).filter(Boolean);
+}
+
+function parseMergeSubtasks(value: string | undefined): string[] | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const subtasks = value.split(',').map(item => item.trim()).filter(Boolean);
+  if (subtasks.length === 0) {
+    throw new Error('Invalid --subtasks: provide at least one subtask id.');
+  }
+  return subtasks;
 }
 
 function parseRequiredCsv(value: string): string[] {

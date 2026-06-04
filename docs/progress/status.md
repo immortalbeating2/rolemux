@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
 更新时间：2026-06-05
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 7 selective patch merge 已实现
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 8 worker 并发与 merge 安全修正已实现
 
 ## 当前真实状态
 
@@ -45,6 +45,8 @@
 - 本轮已完成任务分发 Phase 6：`dispatch --resume <parent-task-id>` 可从既有父任务产物恢复分发摘要，输出子任务状态、产物路径、diff/worktree 存在性和下一步命令建议；当前不会重新执行失败 provider。
 - 本轮新增 Phase 7 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase7.md`。
 - 本轮已完成任务分发 Phase 7：`merge --subtasks one,two` 可只预览或应用指定子任务的 `diff.patch`；未指定时保持处理全部 patch，指定子任务缺少 patch 时返回 `NOT_FOUND`。
+- 本轮新增 Phase 8 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase8.md`。
+- 本轮已完成任务分发 Phase 8：真实 `dispatch` 执行会按 provider quota 限制并发；`merge --dry-run --auto-merge` 和空 `--subtasks` 会返回 `INVALID_ARGUMENT`；新增 worker CLI E2E 覆盖 manifest validate、dispatch、resume、选择性 merge 和 cleanup dry-run。
 - 下一阶段设计结论：标准 subtask manifest 作为核心契约；provider worker pool 支持 `codex:2,claude:1,agy:1` 和 `--workers N` 快捷语义；写代码 worker 默认独立 git worktree；默认只预览合并，`merge --auto-merge` 必须显式 opt-in，worktree 清理必须显式调用。
 
 ## 产品基线
@@ -71,10 +73,9 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 
 ## 下一步建议
 
-1. 提交并推送 E2E 验收脚本与 mock provider 测试。
-2. 确认远程 `main` 已同步为当前可试用分支。
-3. npm 正式发布前补一次真实包安装验收。
-4. 若继续推进大任务分发能力，下一步按设计文档实现失败子任务重新执行、插件调用规则和可选 worktree branch 清理。
+1. 若用户确认需要同步远程，提交并推送 Phase 8 worker 并发、merge 安全和 E2E 验收改动。
+2. npm 正式发布前补一次真实包安装验收。
+3. 若继续推进大任务分发能力，下一步按设计文档实现失败子任务重新执行、插件调用规则和可选 worktree branch 清理。
 
 ## 本次验证记录
 
@@ -98,6 +99,20 @@ git diff --check
 结果：typecheck 通过；测试通过，11 个 test files / 15 个 tests；build 通过并生成 `dist/cli.js` 与 `dist/cli.d.ts`；CLI dry-run 命令均 exit 0；`npm pack --dry-run` 包含 `dist`、`skills`、`roles`、`templates`、`examples`、`docs/release/checklist.md`、`README.md`、`LICENSE`；`git diff --check` 无 whitespace 问题。
 
 最终审查反馈处理后补充验证：测试增加到 17 个；`review --role reviewer --dry-run` 可执行且 prompt 包含默认 reviewer role prompt；`doctor --providers codex` 在只检查 codex 时返回 `ok: true`；`discuss --mode nope --dry-run` 正确返回非零；`npm pack --dry-run` 会触发 `prepack` 自动 build。
+
+2026-06-05 已执行 Phase 8 worker 功能完整验证：
+
+```powershell
+npx vitest run tests/commands/task-dispatch.test.ts tests/core/merge-patches.test.ts
+npm run typecheck
+npm test
+npm run test:e2e
+npm run build
+npm pack --dry-run
+git diff --check
+```
+
+结果：目标测试通过，2 个 test files / 21 个 tests；typecheck 通过；unit test 通过，22 个 test files / 63 个 tests；E2E 通过，2 个 test files / 2 个 tests；build 通过；`npm pack --dry-run` 通过并触发 `prepare` build；`git diff --check` 通过。
 
 已额外用临时 HOME 执行真实 install 验证，确认生成：
 

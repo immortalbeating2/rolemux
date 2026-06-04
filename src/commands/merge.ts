@@ -1,4 +1,5 @@
 import { applyMergePatches, loadMergePreview } from '../core/merge-patches.js';
+import { CliError } from '../core/cli-error.js';
 import type { MergePatchPreview } from '../core/merge-patches.js';
 
 export interface MergeCommandOptions {
@@ -22,6 +23,16 @@ export interface MergeCommandResult {
 /** Previews or explicitly applies dispatch patch artifacts for a parent task. */
 export async function mergeCommand(options: MergeCommandOptions): Promise<MergeCommandResult> {
   const workdir = options.workdir ?? process.cwd();
+  if (options.dryRun === true && options.autoMerge === true) {
+    throw new CliError('merge cannot use --dry-run with --auto-merge.', {
+      code: 'INVALID_ARGUMENT'
+    });
+  }
+  if (options.subtasks !== undefined && options.subtasks.length === 0) {
+    throw new CliError('merge --subtasks requires at least one subtask id.', {
+      code: 'INVALID_ARGUMENT'
+    });
+  }
   if (options.autoMerge === true) {
     const result = await applyMergePatches({ workdir, parentTaskId: options.parentTask, subtasks: options.subtasks });
     return {

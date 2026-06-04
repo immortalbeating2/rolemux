@@ -49,6 +49,19 @@ describe('merge patch artifacts', () => {
     });
   });
 
+  test('rejects an explicitly empty selected subtask list', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge empty selected preview '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+
+    await expect(loadMergePreview({
+      workdir,
+      parentTaskId: 'parent',
+      subtasks: []
+    })).rejects.toMatchObject({
+      code: 'INVALID_ARGUMENT'
+    });
+  });
+
   test('applies clean patches to the target git workdir', async () => {
     const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge apply '));
     await initRepo(workdir);

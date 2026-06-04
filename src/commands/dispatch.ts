@@ -56,10 +56,13 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
 
   const workdir = options.workdir ?? process.cwd();
   const parentTaskId = await createDispatchTaskId(workdir);
-  const runs = await Promise.all(assignments.map(assignment => {
-    const subtask = findSubtask(manifest, assignment.subtaskId);
-    return runDispatchAssignment({ assignment, subtask, workdir, parentTaskId });
-  }));
+  const runs = await runAssignmentsWithProviderLimits({
+    manifest,
+    workers,
+    assignments,
+    workdir,
+    parentTaskId
+  });
 
   const artifactRecord = await createDispatchArtifacts({
     workdir,
@@ -140,6 +143,96 @@ function buildAssignments(manifest: SubtaskManifest, workers: readonly { id: str
       writePolicy: subtask.writePolicy
     };
   });
+}
+
+async function runAssignmentsWithProviderLimits(options: {
+  manifest: SubtaskManifest;
+  workers: readonly { id: string; provider: ProviderName }[];
+  assignments: readonly DispatchAssignment[];
+  workdir: string;
+  parentTaskId: string;
+}): Promise<DispatchRunArtifactInput[]> {
+  const providerLimits = buildProviderLimits(options.workers, options.assignments);
+  const queues = groupAssignmentsByProvider(options.assignments);
+  const runs: Array<DispatchRunArtifactInput | undefined> = new Array(options.assignments.length);
+
+  await Promise.all([...queues.entries()].map(([provider, queue]) => {
+    const limit = providerLimits.get(provider) ?? 1;
+    return runProviderQueue({
+      queue,
+      limit,
+      manifest: options.manifest,
+      workdir: options.workdir,
+      parentTaskId: options.parentTaskId,
+      runs
+    });
+  }));
+
+  return runs.map((run, index) => {
+    if (run === undefined) {
+      throw new Error(`Dispatch run missing for assignment index ${index}.`);
+    }
+    return run;
+  });
+}
+
+function buildProviderLimits(
+  workers: readonly { provider: ProviderName }[],
+  assignments: readonly DispatchAssignment[]
+): Map<ProviderName, number> {
+  // Provider quota 是真实执行并发上限；固定 provider 子任务也进入同一 provider 队列。
+  const limits = new Map<ProviderName, number>();
+  for (const worker of workers) {
+    limits.set(worker.provider, (limits.get(worker.provider) ?? 0) + 1);
+  }
+  for (const assignment of assignments) {
+    if (!limits.has(assignment.provider)) {
+      limits.set(assignment.provider, 1);
+    }
+  }
+  return limits;
+}
+
+function groupAssignmentsByProvider(assignments: readonly DispatchAssignment[]): Map<ProviderName, Array<{
+  assignment: DispatchAssignment;
+  index: number;
+}>> {
+  const queues = new Map<ProviderName, Array<{ assignment: DispatchAssignment; index: number }>>();
+  assignments.forEach((assignment, index) => {
+    const queue = queues.get(assignment.provider) ?? [];
+    queue.push({ assignment, index });
+    queues.set(assignment.provider, queue);
+  });
+  return queues;
+}
+
+async function runProviderQueue(options: {
+  queue: readonly { assignment: DispatchAssignment; index: number }[];
+  limit: number;
+  manifest: SubtaskManifest;
+  workdir: string;
+  parentTaskId: string;
+  runs: Array<DispatchRunArtifactInput | undefined>;
+}): Promise<void> {
+  let cursor = 0;
+  const workerCount = Math.max(1, options.limit);
+
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    for (;;) {
+      const current = options.queue[cursor];
+      cursor += 1;
+      if (current === undefined) {
+        return;
+      }
+      const subtask = findSubtask(options.manifest, current.assignment.subtaskId);
+      options.runs[current.index] = await runDispatchAssignment({
+        assignment: current.assignment,
+        subtask,
+        workdir: options.workdir,
+        parentTaskId: options.parentTaskId
+      });
+    }
+  }));
 }
 
 function findSubtask(manifest: SubtaskManifest, subtaskId: string): SubtaskDefinition {

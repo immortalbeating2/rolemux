@@ -163,7 +163,12 @@ function normalizeSelectedSubtasks(subtasks: readonly string[] | undefined): str
     selected.push(trimmed);
     seen.add(trimmed);
   }
-  return selected.length === 0 ? undefined : selected;
+  if (selected.length === 0) {
+    throw new CliError('Selected subtasks must include at least one subtask id.', {
+      code: 'INVALID_ARGUMENT'
+    });
+  }
+  return selected;
 }
 
 function assertNoOverlappingFiles(patches: readonly MergePatchPreview[]): void {

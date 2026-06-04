@@ -66,6 +66,8 @@
 - 完成任务分发 Phase 6：`dispatch --resume <parent-task-id>` 可读取父任务与子任务 artifact，输出状态摘要、产物路径、diff/worktree 存在性、warning 和下一步命令建议。
 - 新增 Phase 7 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase7.md`。
 - 完成任务分发 Phase 7：`merge --subtasks one,two` 支持选择性预览和应用指定子任务 patch，未指定时保持全量 patch 行为。
+- 新增 Phase 8 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase8.md`。
+- 完成任务分发 Phase 8：真实 `dispatch` 执行按 provider quota 限制并发，`merge` 拒绝 `--dry-run --auto-merge` 和空 `--subtasks`，并新增完整 worker CLI E2E。
 
 ## 后续计划
 

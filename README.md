@@ -196,7 +196,7 @@ rolemux worktree cleanup --parent-task <parent-task-id> --workdir . --dry-run
 rolemux worktree cleanup --parent-task <parent-task-id> --workdir .
 ```
 
-当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务产物，汇总子任务状态、输出路径、patch/worktree 是否存在和下一步建议；当前不会重新运行失败 provider。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查 patch，再应用 clean patch。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
+当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`codex:2,claude:1` 这类 provider quota 会限制真实 provider 进程并发数，而不只是生成 assignment 标签；固定 provider 的子任务也会消耗对应 provider 的并发配额。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务产物，汇总子任务状态、输出路径、patch/worktree 是否存在和下一步建议；当前不会重新运行失败 provider。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查 patch，再应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空值、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量合并。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
 
 查看任务产物：
 
@@ -338,13 +338,14 @@ node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-t
 - 外部命令通过 provider adapter 和参数数组集中构造。
 - 测试优先使用 dry-run、fixture、临时目录或 mock provider。
 - `.rolemux/tasks/` 和 `.rolemux/worktrees/` 运行产物不应提交到仓库。
+- `merge --dry-run --auto-merge` 会被拒绝；空 `--subtasks` 不会被当成“合并全部”。
 
 ## 已知限制
 
 - 当前是 MVP，本地 CLI 编排和静态产物优先。
 - npm 包尚未正式发布，当前推荐从 GitHub 分支或源码安装。
 - 真实 provider CLI 参数可能随版本变化，需要通过 adapter 层持续维护。
-- isolated dispatch 目前可通过 `dispatch --resume` 恢复状态摘要，可通过 `merge --subtasks one,two --auto-merge` 选择性应用 clean patch，并可通过 `worktree cleanup` 清理记录的 worktree；尚不会重新运行失败子任务、自动解决冲突、自动清理 worktree 或删除 worktree branch。
+- isolated dispatch 目前可通过 `dispatch --resume` 恢复状态摘要，可通过 `merge --subtasks one,two --auto-merge` 选择性应用 clean patch，并可通过 `worktree cleanup` 清理记录的 worktree；已有 E2E 覆盖 manifest validate -> dispatch -> resume -> selective merge -> cleanup dry-run；尚不会重新运行失败子任务、自动解决冲突、自动清理 worktree 或删除 worktree branch。
 - 完整 Web dashboard、云端 workflow 服务、插件市场和账号系统不在 MVP 范围内。
 - Windows 路径、空格路径和 shell quoting 需要持续纳入发布验证。
 
