@@ -3,6 +3,7 @@ import { Command } from 'commander';
 import { cleanCommand } from './commands/clean.js';
 import { discussCommand } from './commands/discuss.js';
 import { dispatchCommand } from './commands/dispatch.js';
+import { dispatchResumeCommand } from './commands/dispatch-resume.js';
 import { doctorCommand, type ProviderName } from './commands/doctor.js';
 import { installCommand } from './commands/install.js';
 import { manifestValidateCommand } from './commands/manifest.js';
@@ -89,12 +90,23 @@ export function createCli(): Command {
 
   cli.command('dispatch')
     .description('preview subtask dispatch assignments')
-    .requiredOption('--manifest <manifest>', 'manifest JSON path')
-    .requiredOption('--providers <providers>', 'provider quotas or provider list')
+    .option('--manifest <manifest>', 'manifest JSON path')
+    .option('--providers <providers>', 'provider quotas or provider list')
+    .option('--resume <parentTask>', 'resume and summarize an existing parent dispatch task')
     .option('--workers <workers>', 'worker count for provider-list shortcut', parseInteger)
     .option('--workdir <workdir>', 'working directory', process.cwd())
     .option('--dry-run', 'preview dispatch without executing providers')
     .action(async options => {
+      if (options.resume !== undefined) {
+        printJson(await dispatchResumeCommand({
+          parentTask: options.resume,
+          workdir: options.workdir
+        }));
+        return;
+      }
+      if (options.manifest === undefined || options.providers === undefined) {
+        throw new Error('dispatch requires --manifest and --providers unless --resume is used.');
+      }
       printJson(await dispatchCommand({
         manifest: options.manifest,
         providers: options.providers,

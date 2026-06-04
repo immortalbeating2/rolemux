@@ -187,13 +187,14 @@ rolemux manifest validate --manifest .\rolemux-tasks.json
 rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --dry-run
 rolemux dispatch --manifest .\rolemux-tasks.json --providers codex,claude --workers 4 --dry-run
 rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --workdir .
+rolemux dispatch --resume <parent-task-id> --workdir .
 rolemux merge --parent-task <parent-task-id> --workdir . --dry-run
 rolemux merge --parent-task <parent-task-id> --workdir . --auto-merge
 rolemux worktree cleanup --parent-task <parent-task-id> --workdir . --dry-run
 rolemux worktree cleanup --parent-task <parent-task-id> --workdir .
 ```
 
-当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查所有 patch，再应用 clean patch。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
+当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务产物，汇总子任务状态、输出路径、patch/worktree 是否存在和下一步建议；当前不会重新运行失败 provider。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查所有 patch，再应用 clean patch。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
 
 查看任务产物：
 
@@ -242,6 +243,8 @@ rolemux clean --workdir . --dry-run
 - `worktree.txt`：isolated 子任务使用的 git worktree 绝对路径。
 - `metadata.json`：provider、role、状态、退出码、时间和 fallback attempts。
 - `report.html`：静态 HTML 报告。
+
+`rolemux dispatch --resume <parent-task-id> --workdir .` 可从父任务目录恢复分发摘要，返回每个子任务的状态、provider、role、产物路径、是否存在 `diff.patch` / `worktree.txt`，以及可继续执行的 `merge`、`worktree cleanup` 命令。
 
 ## 配置
 
@@ -339,7 +342,7 @@ node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-t
 - 当前是 MVP，本地 CLI 编排和静态产物优先。
 - npm 包尚未正式发布，当前推荐从 GitHub 分支或源码安装。
 - 真实 provider CLI 参数可能随版本变化，需要通过 adapter 层持续维护。
-- isolated dispatch 目前可通过 `merge --auto-merge` 应用 clean patch，并可通过 `worktree cleanup` 清理记录的 worktree；尚不会自动解决冲突、按子任务选择性应用 patch、自动清理 worktree 或删除 worktree branch。
+- isolated dispatch 目前可通过 `dispatch --resume` 恢复状态摘要，可通过 `merge --auto-merge` 应用 clean patch，并可通过 `worktree cleanup` 清理记录的 worktree；尚不会重新运行失败子任务、自动解决冲突、按子任务选择性应用 patch、自动清理 worktree 或删除 worktree branch。
 - 完整 Web dashboard、云端 workflow 服务、插件市场和账号系统不在 MVP 范围内。
 - Windows 路径、空格路径和 shell quoting 需要持续纳入发布验证。
 
