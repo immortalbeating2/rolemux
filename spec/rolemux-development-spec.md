@@ -95,6 +95,10 @@ RoleMux 应提供三层能力：
 - `rolemux review`：让指定 provider 审查代码或计划。
 - `rolemux status`：查看最近任务状态。
 - `rolemux clean`：清理历史任务缓存。
+- `rolemux manifest validate`：校验标准 subtask manifest。
+- `rolemux split`：把目录或已有 manifest 规范化为标准 subtask manifest。
+- `rolemux dispatch --dry-run`：预览 provider worker pool 分发结果。
+- `rolemux merge --dry-run`：预览父任务 patch 合并入口。
 - role 文件管理：内置 roles，可用户覆盖。
 - provider 适配器：Codex、Claude、Antigravity/agy。
 - 任务产物：保存 prompt、输出、日志、metadata。
@@ -139,6 +143,16 @@ rolemux review --provider codex --role reviewer --workdir .
 
 # 并行讨论
 rolemux discuss --providers claude,codex,agy --task task.md --mode parallel
+
+# 规范化子任务 manifest
+rolemux split --tasks-dir .\tasks --out .\rolemux-tasks.json --dry-run
+rolemux manifest validate --manifest .\rolemux-tasks.json
+
+# 预览 worker 分发
+rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --dry-run
+
+# 预览合并入口
+rolemux merge --parent-task <parent-task-id> --dry-run
 
 # 只查看将执行什么
 rolemux run --provider claude --role architect --task task.md --dry-run

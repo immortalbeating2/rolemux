@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
 更新时间：2026-06-04
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；正在设计下一阶段大任务拆分、worker 分发与独立 merge 能力
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务拆分与 worker 分发第一阶段 dry-run 契约已实现
 
 ## 当前真实状态
 
@@ -31,6 +31,8 @@
 - 本轮新增 `rolemux uninstall`，支持 `--dry-run` 和 `--keep-config`，用于卸载 RoleMux 安装的 config、roles、Codex Skill 和 Claude Skill。
 - 本轮新增 `npm run test:e2e` 与 `npm run verify:release`，覆盖 mock provider 非 dry-run 的 install -> run -> status -> clean -> uninstall 验收流。
 - 本轮新增 Superpowers brainstorming 设计文档：`docs/superpowers/specs/2026-06-04-task-dispatch-design.md`，确定下一阶段采用 `split -> dispatch -> merge` 生命周期。
+- 本轮新增实施计划：`docs/superpowers/plans/2026-06-04-task-dispatch-phase1.md`。
+- 本轮已完成任务分发第一阶段实现：标准 subtask manifest schema、provider worker pool 解析、`manifest validate`、`split`、`dispatch --dry-run`、`merge --dry-run`。
 - 下一阶段设计结论：标准 subtask manifest 作为核心契约；provider worker pool 支持 `codex:2,claude:1,agy:1` 和 `--workers N` 快捷语义；写代码 worker 默认独立 git worktree；默认不自动合并，`merge --auto-merge` 显式 opt-in。
 
 ## 产品基线
@@ -60,7 +62,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 1. 提交并推送 E2E 验收脚本与 mock provider 测试。
 2. 根据用户选择决定是否将 `feature/complete-rolemux-plugin` 合并或同步为远程默认分支。
 3. npm 正式发布前补一次真实包安装验收。
-4. 若推进大任务分发能力，先按 `docs/superpowers/specs/2026-06-04-task-dispatch-design.md` 编写实施计划，再分阶段实现 manifest schema、`split`、`dispatch`、`merge` 和插件调用规则。
+4. 若继续推进大任务分发能力，下一步按设计文档实现真实 dispatch、git worktree 隔离、patch 收集、`merge --auto-merge` 和插件调用规则。
 
 ## 本次验证记录
 

@@ -2,11 +2,15 @@ import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { cleanCommand } from './commands/clean.js';
 import { discussCommand } from './commands/discuss.js';
+import { dispatchCommand } from './commands/dispatch.js';
 import { doctorCommand, type ProviderName } from './commands/doctor.js';
 import { installCommand } from './commands/install.js';
+import { manifestValidateCommand } from './commands/manifest.js';
+import { mergeCommand } from './commands/merge.js';
 import { planCommand } from './commands/plan.js';
 import { reviewCommand } from './commands/review.js';
 import { runCommand } from './commands/run.js';
+import { splitCommand } from './commands/split.js';
 import { statusCommand } from './commands/status.js';
 import { uninstallCommand } from './commands/uninstall.js';
 
@@ -55,6 +59,59 @@ export function createCli(): Command {
       const providers = parseProviders(options.providers);
       const result = await doctorCommand(providers === undefined ? {} : { providers });
       printJson(result);
+    });
+
+  const manifest = cli.command('manifest')
+    .description('work with RoleMux subtask manifests');
+
+  manifest.command('validate')
+    .description('validate a RoleMux subtask manifest')
+    .requiredOption('--manifest <manifest>', 'manifest JSON path')
+    .action(async options => {
+      printJson(await manifestValidateCommand({ manifest: options.manifest }));
+    });
+
+  cli.command('split')
+    .description('normalize task inputs into a RoleMux subtask manifest')
+    .option('--manifest <manifest>', 'existing manifest JSON path')
+    .option('--tasks-dir <tasksDir>', 'directory of markdown subtask files')
+    .requiredOption('--out <out>', 'output manifest JSON path')
+    .option('--dry-run', 'preview normalized manifest without writing files')
+    .action(async options => {
+      printJson(await splitCommand({
+        manifest: options.manifest,
+        tasksDir: options.tasksDir,
+        out: options.out,
+        dryRun: options.dryRun === true
+      }));
+    });
+
+  cli.command('dispatch')
+    .description('preview subtask dispatch assignments')
+    .requiredOption('--manifest <manifest>', 'manifest JSON path')
+    .requiredOption('--providers <providers>', 'provider quotas or provider list')
+    .option('--workers <workers>', 'worker count for provider-list shortcut', parseInteger)
+    .option('--dry-run', 'preview dispatch without executing providers')
+    .action(async options => {
+      printJson(await dispatchCommand({
+        manifest: options.manifest,
+        providers: options.providers,
+        workers: options.workers,
+        dryRun: options.dryRun === true
+      }));
+    });
+
+  cli.command('merge')
+    .description('preview merge for a parent dispatch task')
+    .requiredOption('--parent-task <parentTask>', 'parent task id')
+    .option('--dry-run', 'preview merge without applying patches')
+    .option('--auto-merge', 'apply clean patches automatically')
+    .action(async options => {
+      printJson(await mergeCommand({
+        parentTask: options.parentTask,
+        dryRun: options.dryRun === true,
+        autoMerge: options.autoMerge === true
+      }));
     });
 
   cli.command('run')

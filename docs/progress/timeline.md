@@ -47,6 +47,8 @@
 - 确认写代码类并行任务默认使用独立 git worktree，默认不自动合并；`merge --auto-merge` 作为显式 opt-in。
 - 确认 Herdr 可作为后续可选 backend，第一版仍以 Node process backend 为默认执行方式。
 - 新增设计文档：`docs/superpowers/specs/2026-06-04-task-dispatch-design.md`。
+- 新增实施计划：`docs/superpowers/plans/2026-06-04-task-dispatch-phase1.md`。
+- 完成任务分发第一阶段实现：manifest schema、worker pool、`manifest validate`、`split`、`dispatch --dry-run`、`merge --dry-run`。
 
 ## 后续计划
 
@@ -57,4 +59,4 @@
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
 - M6：已完成首轮实现；README、examples、release checklist、GitHub 安装说明、npm pack 文件清单已验证。
-- 下一阶段建议：按设计文档拆分实现 manifest schema、`split`、`dispatch`、`merge`、JSON 输出和插件调用规则。
+- 下一阶段建议：继续实现真实 dispatch、git worktree 隔离、patch 收集、`merge --auto-merge`、JSON 输出增强和插件调用规则。

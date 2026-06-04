@@ -179,6 +179,18 @@ rolemux review --provider codex --role reviewer --task .\examples\basic-task.md 
 rolemux discuss --providers codex,claude,agy --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
 
+大任务拆分与分发预览：
+
+```powershell
+rolemux split --tasks-dir .\tasks --out .\rolemux-tasks.json --dry-run
+rolemux manifest validate --manifest .\rolemux-tasks.json
+rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --dry-run
+rolemux dispatch --manifest .\rolemux-tasks.json --providers codex,claude --workers 4 --dry-run
+rolemux merge --parent-task <parent-task-id> --dry-run
+```
+
+当前任务分发阶段不会真实启动 worker、创建 git worktree 或自动合并 patch；这些能力会在后续阶段实现。
+
 查看任务产物：
 
 ```powershell
