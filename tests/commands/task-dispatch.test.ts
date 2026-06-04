@@ -1,5 +1,5 @@
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, test } from 'vitest';
 import { dispatchCommand } from '../../src/commands/dispatch.js';
@@ -80,6 +80,61 @@ describe('task dispatch commands', () => {
     expect(result.nextCommands[0]).toContain('rolemux dispatch');
   });
 
+  test('dispatch executes readonly subtasks and writes nested artifacts', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = resolve('tests/fixtures/mock-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch real '));
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Dispatch real work' },
+        subtasks: [
+          { id: 'one', title: 'One', task: 'Do one thing.', writePolicy: 'readonly' }
+        ]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'codex:1',
+        workdir,
+        dryRun: false
+      });
+
+      expect(result.status).toBe('success');
+      expect(result.parentTaskId).toBeDefined();
+      expect(result.artifactDir).toContain('.rolemux');
+
+      const output = await readFile(join(result.artifactDir ?? '', 'subtasks', 'one', 'output.md'), 'utf8');
+      expect(output).toContain('MOCK_PROVIDER_OUTPUT');
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
+  test('dispatch rejects isolated subtasks until worktree phase is implemented', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch isolated '));
+    const manifestPath = join(workdir, 'rolemux-tasks.json');
+    await writeFile(manifestPath, JSON.stringify({
+      version: 1,
+      parentTask: { title: 'Dispatch isolated work' },
+      subtasks: [
+        { id: 'write-code', title: 'Write code', task: 'Modify files.', writePolicy: 'isolated' }
+      ]
+    }), 'utf8');
+
+    await expect(dispatchCommand({
+      manifest: manifestPath,
+      providers: 'codex:1',
+      workdir,
+      dryRun: false
+    })).rejects.toMatchObject({ code: 'DISPATCH_UNSUPPORTED_WRITE_POLICY' });
+  });
+
   test('merge dry-run returns preview-only result', async () => {
     const result = await mergeCommand({
       parentTask: '20260604T120000-abc123',
@@ -92,3 +147,11 @@ describe('task dispatch commands', () => {
     expect(result.nextCommands[0]).toContain('--auto-merge');
   });
 });
+
+function restoreEnv(name: string, oldValue: string | undefined): void {
+  if (oldValue === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = oldValue;
+}

@@ -91,12 +91,14 @@ export function createCli(): Command {
     .requiredOption('--manifest <manifest>', 'manifest JSON path')
     .requiredOption('--providers <providers>', 'provider quotas or provider list')
     .option('--workers <workers>', 'worker count for provider-list shortcut', parseInteger)
+    .option('--workdir <workdir>', 'working directory', process.cwd())
     .option('--dry-run', 'preview dispatch without executing providers')
     .action(async options => {
       printJson(await dispatchCommand({
         manifest: options.manifest,
         providers: options.providers,
         workers: options.workers,
+        workdir: options.workdir,
         dryRun: options.dryRun === true
       }));
     });

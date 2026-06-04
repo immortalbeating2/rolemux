@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
-更新时间：2026-06-04
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务拆分与 worker 分发第一阶段 dry-run 契约已实现
+更新时间：2026-06-05
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 2 真实 readonly dispatch 执行层已实现
 
 ## 当前真实状态
 
@@ -24,7 +24,7 @@
 - 已实现 CLI 命令：`install`、`doctor`、`run`、`status`、`clean`、`plan`、`review`、`discuss`。
 - 已实现 core/provider/report 模块：provider adapter、process runner、task store、metadata、fallback、prompt builder、HTML report。
 - 已新增 Codex/Claude Skill bundle、默认 roles、config/report 模板、examples 和 release checklist。
-- 当前开发分支：`feature/complete-rolemux-plugin`。
+- 当前开发分支：`main`。
 - 已推送远程仓库：`https://github.com/immortalbeating2/rolemux`。
 - 已更新 `README.md`，补充项目定位、当前状态、GitHub 分支安装、常用命令、任务产物、Skill 用法、开发验证和安全默认值。
 - 已在 `package.json` 增加 `prepare` 脚本，支持从 GitHub 安装时自动构建 `dist/`。
@@ -33,6 +33,8 @@
 - 本轮新增 Superpowers brainstorming 设计文档：`docs/superpowers/specs/2026-06-04-task-dispatch-design.md`，确定下一阶段采用 `split -> dispatch -> merge` 生命周期。
 - 本轮新增实施计划：`docs/superpowers/plans/2026-06-04-task-dispatch-phase1.md`。
 - 本轮已完成任务分发第一阶段实现：标准 subtask manifest schema、provider worker pool 解析、`manifest validate`、`split`、`dispatch --dry-run`、`merge --dry-run`。
+- 本轮新增 Phase 2 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase2.md`。
+- 本轮已完成任务分发 Phase 2：`dispatch` 可真实执行 `writePolicy=readonly` 子任务，复用 provider adapter/process runner，并写入父任务与嵌套子任务产物。
 - 下一阶段设计结论：标准 subtask manifest 作为核心契约；provider worker pool 支持 `codex:2,claude:1,agy:1` 和 `--workers N` 快捷语义；写代码 worker 默认独立 git worktree；默认不自动合并，`merge --auto-merge` 显式 opt-in。
 
 ## 产品基线
@@ -62,7 +64,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 1. 提交并推送 E2E 验收脚本与 mock provider 测试。
 2. 根据用户选择决定是否将 `feature/complete-rolemux-plugin` 合并或同步为远程默认分支。
 3. npm 正式发布前补一次真实包安装验收。
-4. 若继续推进大任务分发能力，下一步按设计文档实现真实 dispatch、git worktree 隔离、patch 收集、`merge --auto-merge` 和插件调用规则。
+4. 若继续推进大任务分发能力，下一步按设计文档实现 git worktree 隔离、patch 收集、`merge --auto-merge`、`dispatch --resume` 和插件调用规则。
 
 ## 本次验证记录
 

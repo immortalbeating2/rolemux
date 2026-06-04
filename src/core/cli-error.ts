@@ -7,7 +7,8 @@ export type CliErrorCode =
   | 'TASK_STORE_ERROR'
   | 'PROVIDER_NOT_FOUND'
   | 'SUBTASK_ID_DUPLICATED'
-  | 'WORKER_POOL_INVALID';
+  | 'WORKER_POOL_INVALID'
+  | 'DISPATCH_UNSUPPORTED_WRITE_POLICY';
 
 /** Structured error for command and core boundaries. */
 export class CliError extends Error {

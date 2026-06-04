@@ -179,17 +179,18 @@ rolemux review --provider codex --role reviewer --task .\examples\basic-task.md 
 rolemux discuss --providers codex,claude,agy --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
 
-大任务拆分与分发预览：
+大任务拆分与分发：
 
 ```powershell
 rolemux split --tasks-dir .\tasks --out .\rolemux-tasks.json --dry-run
 rolemux manifest validate --manifest .\rolemux-tasks.json
 rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --dry-run
 rolemux dispatch --manifest .\rolemux-tasks.json --providers codex,claude --workers 4 --dry-run
+rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --workdir .
 rolemux merge --parent-task <parent-task-id> --dry-run
 ```
 
-当前任务分发阶段不会真实启动 worker、创建 git worktree 或自动合并 patch；这些能力会在后续阶段实现。
+当前任务分发阶段支持真实执行 `writePolicy=readonly` 的子任务，并会写入父任务与子任务产物。`writePolicy=isolated`、git worktree、patch 收集和自动合并会在后续阶段实现。
 
 查看任务产物：
 
@@ -209,6 +210,21 @@ rolemux clean --workdir . --dry-run
 
 ```text
 .rolemux/tasks/{task-id}/
+```
+
+任务分发运行会写入父任务目录：
+
+```text
+.rolemux/tasks/{parent-task-id}/
+  manifest.json
+  summary.md
+  metadata.json
+  subtasks/{subtask-id}/
+    task.md
+    prompt.md
+    output.md
+    stderr.log
+    metadata.json
 ```
 
 主要文件：

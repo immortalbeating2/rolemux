@@ -10,6 +10,8 @@ export interface TaskArtifacts {
   readonly output: string;
   readonly stderr: string;
   readonly report?: string | undefined;
+  readonly manifest?: string | undefined;
+  readonly summary?: string | undefined;
 }
 
 /** Persisted metadata schema for .rolemux/tasks/{task-id}/metadata.json. */
@@ -26,6 +28,14 @@ export interface TaskMetadata {
   readonly status: TaskRunStatus;
   readonly artifacts: TaskArtifacts;
   readonly attempts?: readonly unknown[] | undefined;
+  readonly dispatch?: {
+    readonly manifestPath: string;
+    readonly workerCount: number;
+    readonly subtaskCount: number;
+    readonly successCount: number;
+    readonly failedCount: number;
+    readonly timeoutCount: number;
+  } | undefined;
 }
 
 /** Runtime validator for persisted task artifact metadata. */
@@ -45,9 +55,19 @@ export const taskMetadataSchema = z.object({
     prompt: z.string().min(1),
     output: z.string().min(1),
     stderr: z.string().min(1),
-    report: z.string().optional()
+    report: z.string().optional(),
+    manifest: z.string().optional(),
+    summary: z.string().optional()
   }),
-  attempts: z.array(z.unknown()).optional()
+  attempts: z.array(z.unknown()).optional(),
+  dispatch: z.object({
+    manifestPath: z.string().min(1),
+    workerCount: z.number().int().nonnegative(),
+    subtaskCount: z.number().int().nonnegative(),
+    successCount: z.number().int().nonnegative(),
+    failedCount: z.number().int().nonnegative(),
+    timeoutCount: z.number().int().nonnegative()
+  }).optional()
 });
 
 /** Parses metadata JSON into the stable TaskMetadata contract. */
