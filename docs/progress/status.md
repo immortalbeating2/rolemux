@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
 更新时间：2026-06-05
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 2 真实 readonly dispatch 执行层已实现
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 3 git worktree 隔离与 diff 收集已实现
 
 ## 当前真实状态
 
@@ -35,6 +35,8 @@
 - 本轮已完成任务分发第一阶段实现：标准 subtask manifest schema、provider worker pool 解析、`manifest validate`、`split`、`dispatch --dry-run`、`merge --dry-run`。
 - 本轮新增 Phase 2 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase2.md`。
 - 本轮已完成任务分发 Phase 2：`dispatch` 可真实执行 `writePolicy=readonly` 子任务，复用 provider adapter/process runner，并写入父任务与嵌套子任务产物。
+- 本轮新增 Phase 3 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase3.md`。
+- 本轮已完成任务分发 Phase 3：`dispatch` 可真实执行 `writePolicy=isolated` 子任务，在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 创建独立 git worktree，运行后收集 `diff.patch` 并记录 `worktree.txt`。
 - 下一阶段设计结论：标准 subtask manifest 作为核心契约；provider worker pool 支持 `codex:2,claude:1,agy:1` 和 `--workers N` 快捷语义；写代码 worker 默认独立 git worktree；默认不自动合并，`merge --auto-merge` 显式 opt-in。
 
 ## 产品基线
@@ -62,9 +64,9 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 ## 下一步建议
 
 1. 提交并推送 E2E 验收脚本与 mock provider 测试。
-2. 根据用户选择决定是否将 `feature/complete-rolemux-plugin` 合并或同步为远程默认分支。
+2. 确认远程 `main` 已同步为当前可试用分支。
 3. npm 正式发布前补一次真实包安装验收。
-4. 若继续推进大任务分发能力，下一步按设计文档实现 git worktree 隔离、patch 收集、`merge --auto-merge`、`dispatch --resume` 和插件调用规则。
+4. 若继续推进大任务分发能力，下一步按设计文档实现真实 patch 预览、`merge --auto-merge`、worktree 清理、`dispatch --resume` 和插件调用规则。
 
 ## 本次验证记录
 

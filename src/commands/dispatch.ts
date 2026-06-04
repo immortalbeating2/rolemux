@@ -1,9 +1,10 @@
 import { readSubtaskManifest } from '../core/subtask-manifest.js';
 import { buildWorkerPool } from '../core/worker-pool.js';
-import { createDispatchArtifacts } from '../core/dispatch-artifacts.js';
-import { CliError } from '../core/cli-error.js';
+import { createDispatchArtifacts, createDispatchTaskId } from '../core/dispatch-artifacts.js';
+import { collectWorktreeDiff, createIsolatedWorktree } from '../core/git-worktree.js';
 import { runWorkflow } from '../core/workflow-runner.js';
 import type { ProviderName } from '../providers/index.js';
+import type { DispatchRunArtifactInput } from '../core/dispatch-artifacts.js';
 import type { SubtaskDefinition, SubtaskManifest, SubtaskWritePolicy } from '../core/subtask-manifest.js';
 import type { TaskRunStatus } from '../core/task-metadata.js';
 
@@ -53,37 +54,16 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
     };
   }
 
-  assertReadonlyAssignments(assignments);
-
   const workdir = options.workdir ?? process.cwd();
-  const runs = await Promise.all(assignments.map(async assignment => {
+  const parentTaskId = await createDispatchTaskId(workdir);
+  const runs = await Promise.all(assignments.map(assignment => {
     const subtask = findSubtask(manifest, assignment.subtaskId);
-    const workflow = await runWorkflow({
-      provider: assignment.provider,
-      role: assignment.role,
-      task: subtask.task,
-      workdir,
-      dryRun: false
-    });
-
-    return {
-      subtaskId: subtask.id,
-      title: subtask.title,
-      provider: assignment.provider,
-      role: assignment.role,
-      workerId: assignment.workerId,
-      writePolicy: assignment.writePolicy,
-      task: subtask.task,
-      prompt: workflow.prompt,
-      output: workflow.output,
-      stderr: workflow.stderr,
-      status: workflow.status as TaskRunStatus,
-      exitCode: workflow.exitCode
-    };
+    return runDispatchAssignment({ assignment, subtask, workdir, parentTaskId });
   }));
 
   const artifactRecord = await createDispatchArtifacts({
     workdir,
+    parentTaskId,
     manifestPath: options.manifest,
     manifest,
     workerCount: workers.length,
@@ -104,6 +84,47 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
   };
 }
 
+async function runDispatchAssignment(options: {
+  assignment: DispatchAssignment;
+  subtask: SubtaskDefinition;
+  workdir: string;
+  parentTaskId: string;
+}): Promise<DispatchRunArtifactInput> {
+  const isolatedWorktree = options.assignment.writePolicy === 'isolated'
+    ? await createIsolatedWorktree({
+        workdir: options.workdir,
+        parentTaskId: options.parentTaskId,
+        subtaskId: options.subtask.id
+      })
+    : undefined;
+  const runWorkdir = isolatedWorktree?.worktreePath ?? options.workdir;
+  const workflow = await runWorkflow({
+    provider: options.assignment.provider,
+    role: options.assignment.role,
+    task: options.subtask.task,
+    workdir: runWorkdir,
+    dryRun: false
+  });
+  const diff = isolatedWorktree === undefined ? undefined : await collectWorktreeDiff(isolatedWorktree.worktreePath);
+
+  return {
+    subtaskId: options.subtask.id,
+    title: options.subtask.title,
+    provider: options.assignment.provider,
+    role: options.assignment.role,
+    workerId: options.assignment.workerId,
+    writePolicy: options.assignment.writePolicy,
+    task: options.subtask.task,
+    prompt: workflow.prompt,
+    output: workflow.output,
+    stderr: workflow.stderr,
+    status: workflow.status as TaskRunStatus,
+    exitCode: workflow.exitCode,
+    ...(diff !== undefined ? { diff } : {}),
+    ...(isolatedWorktree !== undefined ? { worktreePath: isolatedWorktree.worktreePath } : {})
+  };
+}
+
 function buildAssignments(manifest: SubtaskManifest, workers: readonly { id: string; provider: ProviderName }[]): DispatchAssignment[] {
   return manifest.subtasks.map((subtask, index) => {
     const worker = workers[index % workers.length];
@@ -119,19 +140,6 @@ function buildAssignments(manifest: SubtaskManifest, workers: readonly { id: str
       writePolicy: subtask.writePolicy
     };
   });
-}
-
-function assertReadonlyAssignments(assignments: readonly DispatchAssignment[]): void {
-  const isolated = assignments.find(assignment => assignment.writePolicy !== 'readonly');
-  if (isolated !== undefined) {
-    throw new CliError('Real dispatch currently supports readonly subtasks only; isolated worktree execution is reserved for Phase 3.', {
-      code: 'DISPATCH_UNSUPPORTED_WRITE_POLICY',
-      details: {
-        subtaskId: isolated.subtaskId,
-        writePolicy: isolated.writePolicy
-      }
-    });
-  }
 }
 
 function findSubtask(manifest: SubtaskManifest, subtaskId: string): SubtaskDefinition {

@@ -36,7 +36,9 @@ describe('dispatch artifacts', () => {
           output: 'MOCK_PROVIDER_OUTPUT',
           stderr: '',
           status: 'success',
-          exitCode: 0
+          exitCode: 0,
+          diff: 'diff --git a/feature.txt b/feature.txt\n',
+          worktreePath: join(workdir, '.rolemux', 'worktrees', 'parent', 'one')
         }
       ]
     });
@@ -45,6 +47,8 @@ describe('dispatch artifacts', () => {
     expect(existsSync(join(record.parentTaskDir, 'manifest.json'))).toBe(true);
     expect(existsSync(join(record.parentTaskDir, 'summary.md'))).toBe(true);
     expect(existsSync(join(record.parentTaskDir, 'subtasks', 'one', 'output.md'))).toBe(true);
+    expect(existsSync(join(record.parentTaskDir, 'subtasks', 'one', 'diff.patch'))).toBe(true);
+    expect(existsSync(join(record.parentTaskDir, 'subtasks', 'one', 'worktree.txt'))).toBe(true);
 
     const metadata = parseTaskMetadata(JSON.parse(await readFile(join(record.parentTaskDir, 'metadata.json'), 'utf8')));
     expect(metadata.command).toBe('dispatch');

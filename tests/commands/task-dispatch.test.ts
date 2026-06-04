@@ -6,6 +6,7 @@ import { dispatchCommand } from '../../src/commands/dispatch.js';
 import { manifestValidateCommand } from '../../src/commands/manifest.js';
 import { mergeCommand } from '../../src/commands/merge.js';
 import { splitCommand } from '../../src/commands/split.js';
+import { runProcess } from '../../src/core/process-runner.js';
 
 describe('task dispatch commands', () => {
   test('validates a manifest and reports next commands', async () => {
@@ -116,23 +117,48 @@ describe('task dispatch commands', () => {
     }
   });
 
-  test('dispatch rejects isolated subtasks until worktree phase is implemented', async () => {
-    const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch isolated '));
-    const manifestPath = join(workdir, 'rolemux-tasks.json');
-    await writeFile(manifestPath, JSON.stringify({
-      version: 1,
-      parentTask: { title: 'Dispatch isolated work' },
-      subtasks: [
-        { id: 'write-code', title: 'Write code', task: 'Modify files.', writePolicy: 'isolated' }
-      ]
-    }), 'utf8');
+  test('dispatch executes isolated subtasks in git worktrees and collects diff', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = resolve('tests/fixtures/write-file-provider.mjs');
 
-    await expect(dispatchCommand({
-      manifest: manifestPath,
-      providers: 'codex:1',
-      workdir,
-      dryRun: false
-    })).rejects.toMatchObject({ code: 'DISPATCH_UNSUPPORTED_WRITE_POLICY' });
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch isolated '));
+    await initRepo(workdir);
+
+    try {
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Dispatch isolated work' },
+        subtasks: [
+          { id: 'write-code', title: 'Write code', task: 'Modify files.', writePolicy: 'isolated' }
+        ]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'codex:1',
+        workdir,
+        dryRun: false
+      });
+
+      expect(result.status).toBe('success');
+      expect(result.artifactDir).toBeDefined();
+
+      const subtaskDir = join(result.artifactDir ?? '', 'subtasks', 'write-code');
+      const diff = await readFile(join(subtaskDir, 'diff.patch'), 'utf8');
+      const worktreePath = await readFile(join(subtaskDir, 'worktree.txt'), 'utf8');
+      const output = await readFile(join(subtaskDir, 'output.md'), 'utf8');
+
+      expect(diff).toContain('worker-output.txt');
+      expect(diff).toContain('created by isolated worker');
+      expect(worktreePath).toContain(join('.rolemux', 'worktrees'));
+      expect(output).toContain('WRITE_FILE_PROVIDER_OUTPUT');
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+    }
   });
 
   test('merge dry-run returns preview-only result', async () => {
@@ -154,4 +180,13 @@ function restoreEnv(name: string, oldValue: string | undefined): void {
     return;
   }
   process.env[name] = oldValue;
+}
+
+async function initRepo(repo: string): Promise<void> {
+  await runProcess({ executable: 'git', args: ['init'], cwd: repo });
+  await runProcess({ executable: 'git', args: ['config', 'user.email', 'rolemux@example.invalid'], cwd: repo });
+  await runProcess({ executable: 'git', args: ['config', 'user.name', 'RoleMux Test'], cwd: repo });
+  await writeFile(join(repo, 'README.md'), 'baseline\n', 'utf8');
+  await runProcess({ executable: 'git', args: ['add', 'README.md'], cwd: repo });
+  await runProcess({ executable: 'git', args: ['commit', '-m', 'baseline'], cwd: repo });
 }

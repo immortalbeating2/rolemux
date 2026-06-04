@@ -56,6 +56,8 @@
 - 新增 Phase 2 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase2.md`。
 - 完成任务分发 Phase 2：`dispatch` 可真实执行 `writePolicy=readonly` 子任务，保存父任务 `manifest.json`、`summary.md`、`metadata.json` 和嵌套子任务产物。
 - Phase 2 明确仍不执行 `writePolicy=isolated`；git worktree、patch 收集和 auto-merge 保留到下一阶段。
+- 新增 Phase 3 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase3.md`。
+- 完成任务分发 Phase 3：`dispatch` 可真实执行 `writePolicy=isolated` 子任务，按子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` git worktree，并收集 `diff.patch` 与 `worktree.txt`。
 
 ## 后续计划
 
@@ -66,4 +68,4 @@
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
 - M6：已完成首轮实现；README、examples、release checklist、GitHub 安装说明、npm pack 文件清单已验证。
-- 下一阶段建议：继续实现 git worktree 隔离、patch 收集、`merge --auto-merge`、`dispatch --resume`、JSON 输出增强和插件调用规则。
+- 下一阶段建议：继续实现真实 patch 预览、`merge --auto-merge`、worktree 清理、`dispatch --resume`、JSON 输出增强和插件调用规则。

@@ -27,10 +27,13 @@ export interface DispatchRunArtifactInput {
   readonly stderr: string;
   readonly status: TaskRunStatus;
   readonly exitCode: number | null;
+  readonly diff?: string | undefined;
+  readonly worktreePath?: string | undefined;
 }
 
 export interface CreateDispatchArtifactsInput {
   readonly workdir: string;
+  readonly parentTaskId?: string | undefined;
   readonly manifestPath: string;
   readonly manifest: SubtaskManifest;
   readonly workerCount: number;
@@ -50,7 +53,7 @@ export async function createDispatchArtifacts(input: CreateDispatchArtifactsInpu
   const rootDir = resolve(workdir, '.rolemux/tasks');
   await mkdir(rootDir, { recursive: true });
   const startedAt = new Date();
-  const parentTaskId = await createUniqueTaskId(rootDir, startedAt);
+  const parentTaskId = input.parentTaskId ?? await createUniqueTaskId(rootDir, startedAt);
   const parentTaskDir = join(rootDir, parentTaskId);
   await mkdir(parentTaskDir, { recursive: false });
 
@@ -88,6 +91,12 @@ export async function createDispatchArtifacts(input: CreateDispatchArtifactsInpu
     await writeFile(join(subtaskDir, 'prompt.md'), run.prompt, 'utf8');
     await writeFile(join(subtaskDir, 'output.md'), run.output, 'utf8');
     await writeFile(join(subtaskDir, 'stderr.log'), run.stderr, 'utf8');
+    if (run.diff !== undefined) {
+      await writeFile(join(subtaskDir, 'diff.patch'), run.diff, 'utf8');
+    }
+    if (run.worktreePath !== undefined) {
+      await writeFile(join(subtaskDir, 'worktree.txt'), `${run.worktreePath}\n`, 'utf8');
+    }
     await writeFile(join(subtaskDir, 'metadata.json'), `${JSON.stringify(subtaskMetadata, null, 2)}\n`, 'utf8');
   }
 
@@ -96,6 +105,13 @@ export async function createDispatchArtifacts(input: CreateDispatchArtifactsInpu
     parentTaskDir,
     metadata
   };
+}
+
+/** Allocates a dispatch parent task id before child worktrees need the stable id. */
+export async function createDispatchTaskId(workdir: string): Promise<string> {
+  const rootDir = resolve(workdir, '.rolemux/tasks');
+  await mkdir(rootDir, { recursive: true });
+  return createUniqueTaskId(rootDir, new Date());
 }
 
 function buildDispatchMetadata(options: {
@@ -160,14 +176,18 @@ function buildSubtaskMetadata(options: {
       task: 'task.md',
       prompt: 'prompt.md',
       output: 'output.md',
-      stderr: 'stderr.log'
+      stderr: 'stderr.log',
+      ...(options.run.diff !== undefined ? { diff: 'diff.patch' } : {}),
+      ...(options.run.worktreePath !== undefined ? { worktree: 'worktree.txt' } : {})
     },
     attempts: [
       {
         subtaskId: options.run.subtaskId,
         title: options.run.title,
         workerId: options.run.workerId,
-        writePolicy: options.run.writePolicy
+        writePolicy: options.run.writePolicy,
+        ...(options.run.worktreePath !== undefined ? { worktreePath: options.run.worktreePath } : {}),
+        ...(options.run.diff !== undefined ? { hasDiff: true } : {})
       }
     ]
   };

@@ -7,7 +7,7 @@ RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `co
 ## 当前状态
 
 - 阶段：MVP 首轮实现完成。
-- 当前可用分支：`feature/complete-rolemux-plugin`。
+- 当前可用分支：`main`。
 - 当前安装方式：推荐从 GitHub 源码或当前分支安装试用。
 - npm 状态：尚未正式发布到 npm；发布后才推荐直接使用 `npx rolemux install`。
 - 默认安全边界：不会默认修改用户项目的 `AGENTS.md`，不会默认使用危险 bypass/sandbox 参数。
@@ -63,7 +63,7 @@ docs/release/      发布检查清单
 直接全局安装当前实现分支：
 
 ```powershell
-npm install -g github:immortalbeating2/rolemux#feature/complete-rolemux-plugin
+npm install -g github:immortalbeating2/rolemux#main
 rolemux --help
 ```
 
@@ -72,7 +72,7 @@ rolemux --help
 ```powershell
 git clone https://github.com/immortalbeating2/rolemux.git
 cd rolemux
-git checkout feature/complete-rolemux-plugin
+git checkout main
 npm install
 npm run build
 node .\dist\cli.js --help
@@ -190,7 +190,7 @@ rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --
 rolemux merge --parent-task <parent-task-id> --dry-run
 ```
 
-当前任务分发阶段支持真实执行 `writePolicy=readonly` 的子任务，并会写入父任务与子任务产物。`writePolicy=isolated`、git worktree、patch 收集和自动合并会在后续阶段实现。
+当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。自动应用 patch、`merge --auto-merge` 和 worktree 自动清理仍是后续能力。
 
 查看任务产物：
 
@@ -224,6 +224,8 @@ rolemux clean --workdir . --dry-run
     prompt.md
     output.md
     stderr.log
+    diff.patch       # 仅 isolated 子任务存在
+    worktree.txt     # 仅 isolated 子任务存在
     metadata.json
 ```
 
@@ -233,6 +235,8 @@ rolemux clean --workdir . --dry-run
 - `prompt.md`：最终发送给 provider 的 prompt。
 - `output.md`：provider 输出。
 - `stderr.log`：错误输出。
+- `diff.patch`：isolated 子任务的 git patch，包含新增未跟踪文件。
+- `worktree.txt`：isolated 子任务使用的 git worktree 绝对路径。
 - `metadata.json`：provider、role、状态、退出码、时间和 fallback attempts。
 - `report.html`：静态 HTML 报告。
 
@@ -325,13 +329,14 @@ node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-t
 - `uninstall` 只删除 RoleMux 明确安装的目标路径，保留未列入目标的用户自定义文件。
 - 外部命令通过 provider adapter 和参数数组集中构造。
 - 测试优先使用 dry-run、fixture、临时目录或 mock provider。
-- `.rolemux/tasks/` 运行产物不应提交到仓库。
+- `.rolemux/tasks/` 和 `.rolemux/worktrees/` 运行产物不应提交到仓库。
 
 ## 已知限制
 
 - 当前是 MVP，本地 CLI 编排和静态产物优先。
 - npm 包尚未正式发布，当前推荐从 GitHub 分支或源码安装。
 - 真实 provider CLI 参数可能随版本变化，需要通过 adapter 层持续维护。
+- isolated dispatch 目前只收集 patch 和 worktree 路径，尚不会自动应用 patch 或清理 worktree。
 - 完整 Web dashboard、云端 workflow 服务、插件市场和账号系统不在 MVP 范围内。
 - Windows 路径、空格路径和 shell quoting 需要持续纳入发布验证。
 

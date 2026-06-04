@@ -12,6 +12,8 @@ export interface TaskArtifacts {
   readonly report?: string | undefined;
   readonly manifest?: string | undefined;
   readonly summary?: string | undefined;
+  readonly diff?: string | undefined;
+  readonly worktree?: string | undefined;
 }
 
 /** Persisted metadata schema for .rolemux/tasks/{task-id}/metadata.json. */
@@ -57,7 +59,9 @@ export const taskMetadataSchema = z.object({
     stderr: z.string().min(1),
     report: z.string().optional(),
     manifest: z.string().optional(),
-    summary: z.string().optional()
+    summary: z.string().optional(),
+    diff: z.string().optional(),
+    worktree: z.string().optional()
   }),
   attempts: z.array(z.unknown()).optional(),
   dispatch: z.object({
