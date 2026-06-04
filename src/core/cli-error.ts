@@ -10,7 +10,9 @@ export type CliErrorCode =
   | 'WORKER_POOL_INVALID'
   | 'DISPATCH_UNSUPPORTED_WRITE_POLICY'
   | 'WORKTREE_NOT_AVAILABLE'
-  | 'WORKTREE_CREATE_FAILED';
+  | 'WORKTREE_CREATE_FAILED'
+  | 'MERGE_CONFLICT'
+  | 'PATCH_APPLY_FAILED';
 
 /** Structured error for command and core boundaries. */
 export class CliError extends Error {

@@ -98,7 +98,8 @@ RoleMux 应提供三层能力：
 - `rolemux manifest validate`：校验标准 subtask manifest。
 - `rolemux split`：把目录或已有 manifest 规范化为标准 subtask manifest。
 - `rolemux dispatch`：按 provider worker pool 执行 `readonly` 子任务；`isolated` 子任务在独立 git worktree 中执行并收集 `diff.patch`；也可用 `--dry-run` 预览分发结果。
-- `rolemux merge --dry-run`：预览父任务 patch 合并入口。
+- `rolemux merge --dry-run`：读取父任务 `diff.patch` 并预览涉及文件，不修改主工作区。
+- `rolemux merge --auto-merge`：显式 opt-in，先用 `git apply --check` 检查所有 patch，再应用 clean patch。
 - role 文件管理：内置 roles，可用户覆盖。
 - provider 适配器：Codex、Claude、Antigravity/agy。
 - 任务产物：保存 prompt、输出、日志、metadata。
@@ -155,13 +156,16 @@ rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --
 rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --workdir .
 
 # 预览合并入口
-rolemux merge --parent-task <parent-task-id> --dry-run
+rolemux merge --parent-task <parent-task-id> --workdir . --dry-run
+
+# 显式应用 clean patch
+rolemux merge --parent-task <parent-task-id> --workdir . --auto-merge
 
 # 只查看将执行什么
 rolemux run --provider claude --role architect --task task.md --dry-run
 ```
 
-`writePolicy=isolated` 要求 `--workdir` 位于 git work tree 中。RoleMux 会为每个 isolated 子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}`，provider 在该目录内执行，执行后将 `git diff --binary HEAD` 写入 `.rolemux/tasks/{parent-task-id}/subtasks/{subtask-id}/diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。当前阶段不自动应用 patch、不自动清理 worktree，`merge --auto-merge` 仍为后续显式 opt-in 能力。
+`writePolicy=isolated` 要求 `--workdir` 位于 git work tree 中。RoleMux 会为每个 isolated 子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}`，provider 在该目录内执行，执行后将 `git diff --binary HEAD` 写入 `.rolemux/tasks/{parent-task-id}/subtasks/{subtask-id}/diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`merge --dry-run` 默认只读取并预览这些 patch；只有用户显式使用 `merge --auto-merge` 时，RoleMux 才会对所有 patch 运行 `git apply --check` 并应用 clean patch。当前阶段不自动解决冲突、不支持选择性应用、不自动清理 worktree。
 
 ## 7. 推荐目录结构
 

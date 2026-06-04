@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, test } from 'vitest';
@@ -161,16 +161,39 @@ describe('task dispatch commands', () => {
     }
   });
 
-  test('merge dry-run returns preview-only result', async () => {
+  test('merge dry-run previews real patch artifacts', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge command '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+
     const result = await mergeCommand({
-      parentTask: '20260604T120000-abc123',
+      parentTask: 'parent',
+      workdir,
       dryRun: true,
       autoMerge: false
     });
 
     expect(result.status).toBe('dry-run');
+    expect(result.patches).toHaveLength(1);
+    expect(result.patches[0]?.files).toEqual(['feature.txt']);
     expect(result.requiresUserAction).toBe(true);
     expect(result.nextCommands[0]).toContain('--auto-merge');
+  });
+
+  test('merge auto-merge applies clean patch artifacts', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge auto '));
+    await initRepo(workdir);
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+
+    const result = await mergeCommand({
+      parentTask: 'parent',
+      workdir,
+      dryRun: false,
+      autoMerge: true
+    });
+
+    expect(result.status).toBe('success');
+    expect(result.requiresUserAction).toBe(false);
+    expect(await readFile(join(workdir, 'feature.txt'), 'utf8')).toContain('created by merge');
   });
 });
 
@@ -189,4 +212,23 @@ async function initRepo(repo: string): Promise<void> {
   await writeFile(join(repo, 'README.md'), 'baseline\n', 'utf8');
   await runProcess({ executable: 'git', args: ['add', 'README.md'], cwd: repo });
   await runProcess({ executable: 'git', args: ['commit', '-m', 'baseline'], cwd: repo });
+}
+
+async function writePatchArtifact(workdir: string, parentTaskId: string, subtaskId: string, patch: string): Promise<void> {
+  const subtaskDir = join(workdir, '.rolemux', 'tasks', parentTaskId, 'subtasks', subtaskId);
+  await mkdir(subtaskDir, { recursive: true });
+  await writeFile(join(subtaskDir, 'diff.patch'), patch, 'utf8');
+}
+
+function featurePatch(): string {
+  return [
+    'diff --git a/feature.txt b/feature.txt',
+    'new file mode 100644',
+    'index 0000000..f0b582a',
+    '--- /dev/null',
+    '+++ b/feature.txt',
+    '@@ -0,0 +1 @@',
+    '+created by merge',
+    ''
+  ].join('\n');
 }
