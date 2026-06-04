@@ -40,6 +40,14 @@
 - 新增发布前 E2E 验收：`npm run test:e2e` 使用 `tests/fixtures/mock-provider.mjs` 覆盖 install、非 dry-run run、status、clean、uninstall。
 - 新增 `npm run verify:release`，串联 typecheck、unit test、E2E、npm pack dry-run 和 whitespace check。
 
+## 2026-06-04
+
+- 使用 Superpowers brainstorming 流程收敛 RoleMux 大任务拆分与多 worker 分发方向。
+- 确认新生命周期采用 `split -> dispatch -> merge`：先生成标准 subtask manifest，再按 provider worker pool 执行，最后独立审查和合并 patch。
+- 确认写代码类并行任务默认使用独立 git worktree，默认不自动合并；`merge --auto-merge` 作为显式 opt-in。
+- 确认 Herdr 可作为后续可选 backend，第一版仍以 Node process backend 为默认执行方式。
+- 新增设计文档：`docs/superpowers/specs/2026-06-04-task-dispatch-design.md`。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。
@@ -49,3 +57,4 @@
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
 - M6：已完成首轮实现；README、examples、release checklist、GitHub 安装说明、npm pack 文件清单已验证。
+- 下一阶段建议：按设计文档拆分实现 manifest schema、`split`、`dispatch`、`merge`、JSON 输出和插件调用规则。
