@@ -13,6 +13,7 @@ import { runCommand } from './commands/run.js';
 import { splitCommand } from './commands/split.js';
 import { statusCommand } from './commands/status.js';
 import { uninstallCommand } from './commands/uninstall.js';
+import { worktreeCleanupCommand } from './commands/worktree.js';
 
 /**
  * 创建 RoleMux Commander 实例，供 CLI 入口和测试复用。
@@ -115,6 +116,22 @@ export function createCli(): Command {
         workdir: options.workdir,
         dryRun: options.dryRun === true,
         autoMerge: options.autoMerge === true
+      }));
+    });
+
+  const worktree = cli.command('worktree')
+    .description('manage RoleMux dispatch worktrees');
+
+  worktree.command('cleanup')
+    .description('preview or remove managed dispatch worktrees')
+    .requiredOption('--parent-task <parentTask>', 'parent task id')
+    .option('--workdir <workdir>', 'working directory', process.cwd())
+    .option('--dry-run', 'preview cleanup targets without removing worktrees')
+    .action(async options => {
+      printJson(await worktreeCleanupCommand({
+        parentTask: options.parentTask,
+        workdir: options.workdir,
+        dryRun: options.dryRun === true
       }));
     });
 

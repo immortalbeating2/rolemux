@@ -60,6 +60,8 @@
 - 完成任务分发 Phase 3：`dispatch` 可真实执行 `writePolicy=isolated` 子任务，按子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` git worktree，并收集 `diff.patch` 与 `worktree.txt`。
 - 新增 Phase 4 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase4.md`。
 - 完成任务分发 Phase 4：`merge --dry-run` 可读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 可显式应用 clean patch。
+- 新增 Phase 5 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase5.md`。
+- 完成任务分发 Phase 5：`worktree cleanup` 可按父任务 `worktree.txt` 预览并清理 `.rolemux/worktrees/` 下的 managed worktree。
 
 ## 后续计划
 
@@ -70,4 +72,4 @@
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
 - M6：已完成首轮实现；README、examples、release checklist、GitHub 安装说明、npm pack 文件清单已验证。
-- 下一阶段建议：继续实现 worktree 清理、`dispatch --resume`、选择性 patch 应用、JSON 输出增强和插件调用规则。
+- 下一阶段建议：继续实现 `dispatch --resume`、选择性 patch 应用、JSON 输出增强、插件调用规则和可选 worktree branch 清理。
