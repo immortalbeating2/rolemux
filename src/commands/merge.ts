@@ -6,6 +6,7 @@ export interface MergeCommandOptions {
   readonly workdir?: string | undefined;
   readonly dryRun?: boolean | undefined;
   readonly autoMerge?: boolean | undefined;
+  readonly subtasks?: readonly string[] | undefined;
 }
 
 export interface MergeCommandResult {
@@ -22,7 +23,7 @@ export interface MergeCommandResult {
 export async function mergeCommand(options: MergeCommandOptions): Promise<MergeCommandResult> {
   const workdir = options.workdir ?? process.cwd();
   if (options.autoMerge === true) {
-    const result = await applyMergePatches({ workdir, parentTaskId: options.parentTask });
+    const result = await applyMergePatches({ workdir, parentTaskId: options.parentTask, subtasks: options.subtasks });
     return {
       status: 'success',
       parentTaskId: options.parentTask,
@@ -34,13 +35,16 @@ export async function mergeCommand(options: MergeCommandOptions): Promise<MergeC
     };
   }
 
-  const preview = await loadMergePreview({ workdir, parentTaskId: options.parentTask });
+  const preview = await loadMergePreview({ workdir, parentTaskId: options.parentTask, subtasks: options.subtasks });
+  const subtaskOption = options.subtasks === undefined || options.subtasks.length === 0
+    ? ''
+    : ` --subtasks ${options.subtasks.join(',')}`;
   return {
     status: 'dry-run',
     parentTaskId: options.parentTask,
     artifactDir: preview.parentTaskDir,
     patches: preview.patches,
-    nextCommands: [`rolemux merge --parent-task ${options.parentTask} --workdir ${workdir} --auto-merge`],
+    nextCommands: [`rolemux merge --parent-task ${options.parentTask} --workdir ${workdir}${subtaskOption} --auto-merge`],
     warnings: preview.warnings,
     requiresUserAction: true
   };

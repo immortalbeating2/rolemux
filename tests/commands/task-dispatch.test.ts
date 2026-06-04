@@ -179,6 +179,24 @@ describe('task dispatch commands', () => {
     expect(result.nextCommands[0]).toContain('--auto-merge');
   });
 
+  test('merge dry-run previews only selected subtask patches', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge selected command '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+    await writePatchArtifact(workdir, 'parent', 'two', anotherPatch());
+
+    const result = await mergeCommand({
+      parentTask: 'parent',
+      workdir,
+      dryRun: true,
+      autoMerge: false,
+      subtasks: ['two']
+    });
+
+    expect(result.status).toBe('dry-run');
+    expect(result.patches.map(patch => patch.subtaskId)).toEqual(['two']);
+    expect(result.nextCommands[0]).toContain('--subtasks two');
+  });
+
   test('merge auto-merge applies clean patch artifacts', async () => {
     const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge auto '));
     await initRepo(workdir);
@@ -194,6 +212,25 @@ describe('task dispatch commands', () => {
     expect(result.status).toBe('success');
     expect(result.requiresUserAction).toBe(false);
     expect(await readFile(join(workdir, 'feature.txt'), 'utf8')).toContain('created by merge');
+  });
+
+  test('merge auto-merge applies only selected subtask patches', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge selected auto '));
+    await initRepo(workdir);
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+    await writePatchArtifact(workdir, 'parent', 'two', anotherPatch());
+
+    const result = await mergeCommand({
+      parentTask: 'parent',
+      workdir,
+      dryRun: false,
+      autoMerge: true,
+      subtasks: ['two']
+    });
+
+    expect(result.status).toBe('success');
+    expect(await readFile(join(workdir, 'another.txt'), 'utf8')).toContain('created by selected merge');
+    await expect(readFile(join(workdir, 'feature.txt'), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });
 
@@ -229,6 +266,19 @@ function featurePatch(): string {
     '+++ b/feature.txt',
     '@@ -0,0 +1 @@',
     '+created by merge',
+    ''
+  ].join('\n');
+}
+
+function anotherPatch(): string {
+  return [
+    'diff --git a/another.txt b/another.txt',
+    'new file mode 100644',
+    'index 0000000..f0b582a',
+    '--- /dev/null',
+    '+++ b/another.txt',
+    '@@ -0,0 +1 @@',
+    '+created by selected merge',
     ''
   ].join('\n');
 }

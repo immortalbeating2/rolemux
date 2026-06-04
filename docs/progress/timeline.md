@@ -64,6 +64,8 @@
 - 完成任务分发 Phase 5：`worktree cleanup` 可按父任务 `worktree.txt` 预览并清理 `.rolemux/worktrees/` 下的 managed worktree。
 - 新增 Phase 6 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase6.md`。
 - 完成任务分发 Phase 6：`dispatch --resume <parent-task-id>` 可读取父任务与子任务 artifact，输出状态摘要、产物路径、diff/worktree 存在性、warning 和下一步命令建议。
+- 新增 Phase 7 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase7.md`。
+- 完成任务分发 Phase 7：`merge --subtasks one,two` 支持选择性预览和应用指定子任务 patch，未指定时保持全量 patch 行为。
 
 ## 后续计划
 
@@ -74,4 +76,4 @@
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
 - M6：已完成首轮实现；README、examples、release checklist、GitHub 安装说明、npm pack 文件清单已验证。
-- 下一阶段建议：继续实现选择性 patch 应用、失败子任务重新执行、插件调用规则和可选 worktree branch 清理。
+- 下一阶段建议：继续实现失败子任务重新执行、插件调用规则和可选 worktree branch 清理。

@@ -7,6 +7,7 @@ import { runProcess } from './process-runner.js';
 export interface MergePatchInput {
   readonly workdir: string;
   readonly parentTaskId: string;
+  readonly subtasks?: readonly string[] | undefined;
 }
 
 export interface MergePatchPreview {
@@ -49,11 +50,21 @@ export async function loadMergePreview(input: MergePatchInput): Promise<MergePre
     };
   }
 
-  const subtaskNames = await listDirectoryNames(subtasksDir);
+  const subtaskNames = normalizeSelectedSubtasks(input.subtasks) ?? await listDirectoryNames(subtasksDir);
   const patches = [];
   for (const subtaskId of subtaskNames) {
     const patchPath = join(subtasksDir, subtaskId, 'diff.patch');
     if (!existsSync(patchPath)) {
+      if (input.subtasks !== undefined) {
+        throw new CliError(`Patch artifact not found for selected subtask: ${subtaskId}`, {
+          code: 'NOT_FOUND',
+          details: {
+            parentTaskId: input.parentTaskId,
+            subtaskId,
+            patchPath
+          }
+        });
+      }
       continue;
     }
     const patch = await readFile(patchPath, 'utf8');
@@ -136,6 +147,23 @@ export function parsePatchFiles(patch: string): string[] {
 async function listDirectoryNames(path: string): Promise<string[]> {
   const entries = await readdir(path, { withFileTypes: true });
   return entries.filter(entry => entry.isDirectory()).map(entry => entry.name).sort();
+}
+
+function normalizeSelectedSubtasks(subtasks: readonly string[] | undefined): string[] | undefined {
+  if (subtasks === undefined) {
+    return undefined;
+  }
+  const selected: string[] = [];
+  const seen = new Set<string>();
+  for (const subtask of subtasks) {
+    const trimmed = subtask.trim();
+    if (trimmed.length === 0 || seen.has(trimmed)) {
+      continue;
+    }
+    selected.push(trimmed);
+    seen.add(trimmed);
+  }
+  return selected.length === 0 ? undefined : selected;
 }
 
 function assertNoOverlappingFiles(patches: readonly MergePatchPreview[]): void {

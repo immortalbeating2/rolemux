@@ -21,6 +21,34 @@ describe('merge patch artifacts', () => {
     expect(preview.warnings).toEqual([]);
   });
 
+  test('loads only selected subtask patch previews', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge selected preview '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+    await writePatchArtifact(workdir, 'parent', 'two', anotherPatch());
+
+    const preview = await loadMergePreview({
+      workdir,
+      parentTaskId: 'parent',
+      subtasks: ['two']
+    });
+
+    expect(preview.patches.map(patch => patch.subtaskId)).toEqual(['two']);
+    expect(preview.patches[0]?.files).toEqual(['another.txt']);
+  });
+
+  test('rejects selected subtasks that do not have patch artifacts', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge missing selected preview '));
+    await writePatchArtifact(workdir, 'parent', 'one', featurePatch());
+
+    await expect(loadMergePreview({
+      workdir,
+      parentTaskId: 'parent',
+      subtasks: ['missing']
+    })).rejects.toMatchObject({
+      code: 'NOT_FOUND'
+    });
+  });
+
   test('applies clean patches to the target git workdir', async () => {
     const workdir = await mkdtemp(join(tmpdir(), 'rolemux merge apply '));
     await initRepo(workdir);
@@ -78,6 +106,19 @@ function featurePatch(): string {
     '+++ b/feature.txt',
     '@@ -0,0 +1 @@',
     '+created by merge',
+    ''
+  ].join('\n');
+}
+
+function anotherPatch(): string {
+  return [
+    'diff --git a/another.txt b/another.txt',
+    'new file mode 100644',
+    'index 0000000..f0b582a',
+    '--- /dev/null',
+    '+++ b/another.txt',
+    '@@ -0,0 +1 @@',
+    '+created by selected merge',
     ''
   ].join('\n');
 }

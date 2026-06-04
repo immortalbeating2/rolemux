@@ -120,12 +120,14 @@ export function createCli(): Command {
     .description('preview merge for a parent dispatch task')
     .requiredOption('--parent-task <parentTask>', 'parent task id')
     .option('--workdir <workdir>', 'working directory', process.cwd())
+    .option('--subtasks <subtasks>', 'comma-separated subtask ids to preview or apply')
     .option('--dry-run', 'preview merge without applying patches')
     .option('--auto-merge', 'apply clean patches automatically')
     .action(async options => {
       printJson(await mergeCommand({
         parentTask: options.parentTask,
         workdir: options.workdir,
+        subtasks: parseCsv(options.subtasks),
         dryRun: options.dryRun === true,
         autoMerge: options.autoMerge === true
       }));
