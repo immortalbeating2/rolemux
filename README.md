@@ -164,7 +164,7 @@ rolemux run --provider codex --role builder --task .\examples\basic-task.md --wo
 让 Codex 和 Claude 生成计划：
 
 ```powershell
-rolemux plan --providers codex,claude --task .\examples\basic-task.md --workdir . --dry-run
+rolemux plan --providers 'codex,claude' --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
 让 Codex 执行审查：
@@ -176,7 +176,7 @@ rolemux review --provider codex --role reviewer --task .\examples\basic-task.md 
 预览多 provider 讨论：
 
 ```powershell
-rolemux discuss --providers codex,claude,agy --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
+rolemux discuss --providers 'codex,claude,agy' --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
 
 大任务拆分与分发：
@@ -184,19 +184,19 @@ rolemux discuss --providers codex,claude,agy --task .\examples\basic-task.md --w
 ```powershell
 rolemux split --tasks-dir .\tasks --out .\rolemux-tasks.json --dry-run
 rolemux manifest validate --manifest .\rolemux-tasks.json
-rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --dry-run
-rolemux dispatch --manifest .\rolemux-tasks.json --providers codex,claude --workers 4 --dry-run
-rolemux dispatch --manifest .\rolemux-tasks.json --providers codex:2,claude:1 --workdir .
+rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' --dry-run
+rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex,claude' --workers 4 --dry-run
+rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' --workdir .
 rolemux dispatch --resume <parent-task-id> --workdir .
 rolemux merge --parent-task <parent-task-id> --workdir . --dry-run
-rolemux merge --parent-task <parent-task-id> --workdir . --subtasks one,two --dry-run
+rolemux merge --parent-task <parent-task-id> --workdir . --subtasks 'one,two' --dry-run
 rolemux merge --parent-task <parent-task-id> --workdir . --auto-merge
-rolemux merge --parent-task <parent-task-id> --workdir . --subtasks one,two --auto-merge
+rolemux merge --parent-task <parent-task-id> --workdir . --subtasks 'one,two' --auto-merge
 rolemux worktree cleanup --parent-task <parent-task-id> --workdir . --dry-run
 rolemux worktree cleanup --parent-task <parent-task-id> --workdir .
 ```
 
-当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`codex:2,claude:1` 这类 provider quota 会限制真实 provider 进程并发数，而不只是生成 assignment 标签；固定 provider 的子任务也会消耗对应 provider 的并发配额。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务产物，汇总子任务状态、输出路径、patch/worktree 是否存在和下一步建议；当前不会重新运行失败 provider。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查 patch，再应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空值、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量合并。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
+当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`codex:2,claude:1` 这类 provider quota 会限制真实 provider 进程并发数，而不只是生成 assignment 标签；固定 provider 的子任务也会消耗对应 provider 的并发配额。Windows PowerShell 中通过 `rolemux.ps1` shim 传入逗号列表时建议加引号，例如 `--providers 'codex:2,claude:1'` 和 `--subtasks 'one,two'`。`isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务产物，汇总子任务状态、输出路径、patch/worktree 是否存在和下一步建议；当前不会重新运行失败 provider。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查 patch，再应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空值、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量合并。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
 
 查看任务产物：
 

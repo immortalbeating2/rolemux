@@ -1,3 +1,4 @@
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import { cleanCommand } from './commands/clean.js';
@@ -298,6 +299,19 @@ function printJson(value: unknown): void {
   console.log(JSON.stringify(value, null, 2));
 }
 
-if (fileURLToPath(import.meta.url) === process.argv[1]) {
+function isDirectCliInvocation(): boolean {
+  const invokedPath = process.argv[1];
+  if (invokedPath === undefined) {
+    return false;
+  }
+
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(invokedPath);
+  } catch {
+    return fileURLToPath(import.meta.url) === invokedPath;
+  }
+}
+
+if (isDirectCliInvocation()) {
   void main();
 }
