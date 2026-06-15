@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "parentTask": {
+    "title": "Validate RoleMux Codex context-pack and multi-provider dispatch"
+  },
+  "defaults": {
+    "role": "reviewer",
+    "writePolicy": "readonly"
+  },
+  "subtasks": [
+    {
+      "id": "codex-context-pack",
+      "title": "Codex verifies injected context",
+      "provider": "codex",
+      "role": "reviewer",
+      "task": "Use only the injected RoleMux context-pack. Report EXPECTED_CODEX_CONTEXT_PACK_OK if the context contains the implementation plan file and explain that you did not need to read local files.",
+      "allowedPaths": [
+        "docs/superpowers/plans/2026-06-07-codex-context-pack-dispatch.md"
+      ],
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "claude-artifact-check",
+      "title": "Claude checks expected artifact criteria",
+      "provider": "claude",
+      "role": "reviewer",
+      "task": "Return EXPECTED_CLAUDE_ARTIFACT_CHECK_OK if RoleMux dispatch should write prompt.md, output.md, stderr.log, metadata.json, and summary.md artifacts for this validation task.",
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "agy-context-summary",
+      "title": "Agy summarizes validation outcome",
+      "provider": "agy",
+      "role": "summarizer",
+      "task": "Return EXPECTED_AGY_SUMMARY_OK and briefly state that this readonly validation checks multi-provider dispatch after Codex context-pack routing.",
+      "writePolicy": "readonly"
+    }
+  ]
+}

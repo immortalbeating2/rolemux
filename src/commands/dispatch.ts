@@ -1,10 +1,19 @@
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { readSubtaskManifest } from '../core/subtask-manifest.js';
 import { buildWorkerPool } from '../core/worker-pool.js';
 import { createDispatchArtifacts, createDispatchTaskId } from '../core/dispatch-artifacts.js';
+import { buildContextPack } from '../core/context-pack.js';
+import { appendMonitorEvent, ensureMonitorStore, isCancelRequested, updateMonitorAgent } from '../core/agents-monitor.js';
 import { collectWorktreeDiff, createIsolatedWorktree } from '../core/git-worktree.js';
 import { runWorkflow } from '../core/workflow-runner.js';
 import type { ProviderName } from '../providers/index.js';
 import type { DispatchRunArtifactInput } from '../core/dispatch-artifacts.js';
+import type { AgentsMonitorStore, MonitorAgentSeed } from '../core/agents-monitor.js';
 import type { SubtaskDefinition, SubtaskManifest, SubtaskWritePolicy } from '../core/subtask-manifest.js';
 import type { TaskRunStatus } from '../core/task-metadata.js';
 
@@ -14,6 +23,8 @@ export interface DispatchCommandOptions {
   readonly workers?: number | undefined;
   readonly workdir?: string | undefined;
   readonly dryRun?: boolean | undefined;
+  readonly detach?: boolean | undefined;
+  readonly parentTaskId?: string | undefined;
 }
 
 export interface DispatchAssignment {
@@ -25,12 +36,16 @@ export interface DispatchAssignment {
 }
 
 export interface DispatchCommandResult {
-  readonly status: 'dry-run' | 'success' | 'failed' | 'timeout';
+  readonly status: 'dry-run' | 'success' | 'failed' | 'timeout' | 'canceled' | 'started';
   readonly manifestPath: string;
   readonly workerCount: number;
   readonly assignments: readonly DispatchAssignment[];
   readonly parentTaskId?: string | undefined;
   readonly artifactDir?: string | undefined;
+  readonly agentsCommand?: string | undefined;
+  readonly agentsJsonCommand?: string | undefined;
+  readonly agentsTuiCommand?: string | undefined;
+  readonly cancelCommand?: string | undefined;
   readonly nextCommands: readonly string[];
   readonly warnings: readonly string[];
   readonly requiresUserAction: boolean;
@@ -55,13 +70,59 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
   }
 
   const workdir = options.workdir ?? process.cwd();
-  const parentTaskId = await createDispatchTaskId(workdir);
+  const parentTaskId = options.parentTaskId ?? await createDispatchTaskId(workdir);
+  const monitorSeeds = buildMonitorSeeds(manifest, assignments);
+  if (options.detach === true) {
+    const monitor = await ensureMonitorStore({
+      workdir,
+      parentTaskId,
+      title: manifest.parentTask.title,
+      manifestPath: options.manifest,
+      agents: monitorSeeds
+    });
+    await appendMonitorEvent(monitor, { type: 'dispatch-started', message: 'detached background runner requested' });
+    startDetachedDispatchRunner({
+      manifest: options.manifest,
+      providers: options.providers,
+      workers: options.workers,
+      workdir,
+      parentTaskId
+    });
+    const agentsCommand = `rolemux agents --parent-task ${parentTaskId}`;
+    const agentsJsonCommand = `${agentsCommand} --json`;
+    const agentsTuiCommand = `${agentsCommand} --tui`;
+    const cancelCommand = `rolemux cancel --parent-task ${parentTaskId}`;
+    return {
+      status: 'started',
+      manifestPath: options.manifest,
+      workerCount: workers.length,
+      assignments,
+      parentTaskId,
+      artifactDir: monitor.parentTaskDir,
+      agentsCommand,
+      agentsJsonCommand,
+      agentsTuiCommand,
+      cancelCommand,
+      nextCommands: [agentsCommand, cancelCommand],
+      warnings: [],
+      requiresUserAction: false
+    };
+  }
+  const monitor = await ensureMonitorStore({
+    workdir,
+    parentTaskId,
+    title: manifest.parentTask.title,
+    manifestPath: options.manifest,
+    agents: monitorSeeds
+  });
+  await appendMonitorEvent(monitor, { type: 'dispatch-running', message: 'provider dispatch started' });
   const runs = await runAssignmentsWithProviderLimits({
     manifest,
     workers,
     assignments,
     workdir,
-    parentTaskId
+    parentTaskId,
+    monitor
   });
 
   const artifactRecord = await createDispatchArtifacts({
@@ -73,6 +134,7 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
     assignments,
     runs
   });
+  await finalizeMonitorFromRuns(monitor, runs);
 
   return {
     status: artifactRecord.metadata.status,
@@ -92,6 +154,7 @@ async function runDispatchAssignment(options: {
   subtask: SubtaskDefinition;
   workdir: string;
   parentTaskId: string;
+  signal?: AbortSignal | undefined;
 }): Promise<DispatchRunArtifactInput> {
   const isolatedWorktree = options.assignment.writePolicy === 'isolated'
     ? await createIsolatedWorktree({
@@ -100,12 +163,21 @@ async function runDispatchAssignment(options: {
         subtaskId: options.subtask.id
       })
     : undefined;
-  const runWorkdir = isolatedWorktree?.worktreePath ?? options.workdir;
+  const contextSourceWorkdir = isolatedWorktree?.worktreePath ?? options.workdir;
+  const contextPack = await buildDispatchContextPack({
+    provider: options.assignment.provider,
+    writePolicy: options.assignment.writePolicy,
+    workdir: contextSourceWorkdir,
+    allowedPaths: options.subtask.allowedPaths
+  });
+  const runWorkdir = contextPack === undefined ? contextSourceWorkdir : await createCodexContextPackWorkdir();
   const workflow = await runWorkflow({
     provider: options.assignment.provider,
     role: options.assignment.role,
     task: options.subtask.task,
     workdir: runWorkdir,
+    ...(contextPack === undefined ? {} : { context: contextPack.context }),
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
     dryRun: false
   });
   const diff = isolatedWorktree === undefined ? undefined : await collectWorktreeDiff(isolatedWorktree.worktreePath);
@@ -121,11 +193,68 @@ async function runDispatchAssignment(options: {
     prompt: workflow.prompt,
     output: workflow.output,
     stderr: workflow.stderr,
-    status: workflow.status as TaskRunStatus,
+  status: workflow.status as TaskRunStatus,
     exitCode: workflow.exitCode,
+    startedAt: workflow.startedAt,
+    finishedAt: workflow.finishedAt,
+    durationMs: workflow.durationMs,
+    ...(contextPack === undefined
+      ? {}
+      : {
+          contextPack: {
+            includedPaths: contextPack.includedPaths,
+            skippedPaths: contextPack.skippedPaths,
+            runWorkdir
+          }
+        }),
     ...(diff !== undefined ? { diff } : {}),
     ...(isolatedWorktree !== undefined ? { worktreePath: isolatedWorktree.worktreePath } : {})
   };
+}
+
+function buildCanceledRun(options: {
+  assignment: DispatchAssignment;
+  subtask: SubtaskDefinition;
+}): DispatchRunArtifactInput {
+  const now = new Date().toISOString();
+  return {
+    subtaskId: options.subtask.id,
+    title: options.subtask.title,
+    provider: options.assignment.provider,
+    role: options.assignment.role,
+    workerId: options.assignment.workerId,
+    writePolicy: options.assignment.writePolicy,
+    task: options.subtask.task,
+    prompt: '',
+    output: '',
+    stderr: 'Canceled before provider execution completed.',
+    status: 'canceled',
+    exitCode: null,
+    startedAt: now,
+    finishedAt: now,
+    durationMs: 0
+  };
+}
+
+async function buildDispatchContextPack(options: {
+  provider: ProviderName;
+  writePolicy: SubtaskWritePolicy;
+  workdir: string;
+  allowedPaths?: readonly string[] | undefined;
+}): Promise<Awaited<ReturnType<typeof buildContextPack>> | undefined> {
+  if (options.provider !== 'codex' || options.writePolicy !== 'readonly' || options.allowedPaths === undefined || options.allowedPaths.length === 0) {
+    return undefined;
+  }
+
+  return buildContextPack({
+    workdir: options.workdir,
+    allowedPaths: options.allowedPaths
+  });
+}
+
+async function createCodexContextPackWorkdir(): Promise<string> {
+  // Codex 会在当前目录自动吸收项目级上下文；context-pack worker 需要干净目录，只使用显式注入内容。
+  return mkdtemp(join(tmpdir(), 'rolemux-codex-context-pack-'));
 }
 
 function buildAssignments(manifest: SubtaskManifest, workers: readonly { id: string; provider: ProviderName }[]): DispatchAssignment[] {
@@ -151,6 +280,7 @@ async function runAssignmentsWithProviderLimits(options: {
   assignments: readonly DispatchAssignment[];
   workdir: string;
   parentTaskId: string;
+  monitor: AgentsMonitorStore;
 }): Promise<DispatchRunArtifactInput[]> {
   const providerLimits = buildProviderLimits(options.workers, options.assignments);
   const queues = groupAssignmentsByProvider(options.assignments);
@@ -164,6 +294,7 @@ async function runAssignmentsWithProviderLimits(options: {
       manifest: options.manifest,
       workdir: options.workdir,
       parentTaskId: options.parentTaskId,
+      monitor: options.monitor,
       runs
     });
   }));
@@ -212,6 +343,7 @@ async function runProviderQueue(options: {
   manifest: SubtaskManifest;
   workdir: string;
   parentTaskId: string;
+  monitor: AgentsMonitorStore;
   runs: Array<DispatchRunArtifactInput | undefined>;
 }): Promise<void> {
   let cursor = 0;
@@ -225,14 +357,144 @@ async function runProviderQueue(options: {
         return;
       }
       const subtask = findSubtask(options.manifest, current.assignment.subtaskId);
-      options.runs[current.index] = await runDispatchAssignment({
-        assignment: current.assignment,
-        subtask,
-        workdir: options.workdir,
-        parentTaskId: options.parentTaskId
+      if (isCancelRequested(options.monitor)) {
+        await appendMonitorEvent(options.monitor, {
+          agentId: current.assignment.subtaskId,
+          type: 'agent-canceled',
+          message: 'cancel requested before provider start'
+        });
+        await updateMonitorAgent(options.monitor, current.assignment.subtaskId, {
+          status: 'canceled',
+          lastEvent: 'cancel requested before provider start'
+        });
+        options.runs[current.index] = buildCanceledRun({ assignment: current.assignment, subtask });
+        continue;
+      }
+      const controller = new AbortController();
+      const cancelPoll = setInterval(() => {
+        if (isCancelRequested(options.monitor)) {
+          controller.abort();
+        }
+      }, 250);
+      await appendMonitorEvent(options.monitor, {
+        agentId: current.assignment.subtaskId,
+        type: 'agent-running',
+        message: 'provider process started'
       });
+      await updateMonitorAgent(options.monitor, current.assignment.subtaskId, {
+        status: 'running',
+        lastEvent: 'provider process started'
+      });
+      try {
+        options.runs[current.index] = await runDispatchAssignment({
+          assignment: current.assignment,
+          subtask,
+          workdir: options.workdir,
+          parentTaskId: options.parentTaskId,
+          signal: controller.signal
+        });
+      } finally {
+        clearInterval(cancelPoll);
+      }
     }
   }));
+}
+
+async function finalizeMonitorFromRuns(monitor: AgentsMonitorStore, runs: readonly DispatchRunArtifactInput[]): Promise<void> {
+  for (const run of runs) {
+    const status = toMonitorStatus(run.status);
+    const lastEvent = status === 'success'
+      ? 'output.md written'
+      : status === 'canceled'
+        ? 'canceled'
+        : `${status} artifact written`;
+    await appendMonitorEvent(monitor, {
+      agentId: run.subtaskId,
+      type: `agent-${status}`,
+      message: lastEvent
+    });
+    await updateMonitorAgent(monitor, run.subtaskId, {
+      status,
+      lastEvent,
+      hasDiff: run.diff !== undefined,
+      stderrSummary: summarizeStderr(run.stderr)
+    });
+  }
+}
+
+function toMonitorStatus(status: TaskRunStatus): 'success' | 'failed' | 'timeout' | 'canceled' {
+  if (status === 'success' || status === 'failed' || status === 'timeout' || status === 'canceled') {
+    return status;
+  }
+  return 'failed';
+}
+
+function summarizeStderr(stderr: string): string | undefined {
+  const firstLine = stderr.trim().split(/\r?\n/).find(Boolean);
+  return firstLine === undefined ? undefined : firstLine.slice(0, 180);
+}
+
+function buildMonitorSeeds(manifest: SubtaskManifest, assignments: readonly DispatchAssignment[]): MonitorAgentSeed[] {
+  return assignments.map(assignment => {
+    const subtask = findSubtask(manifest, assignment.subtaskId);
+    return {
+      id: assignment.subtaskId,
+      title: subtask.title,
+      cli: assignment.provider,
+      role: assignment.role,
+      writePolicy: assignment.writePolicy
+    };
+  });
+}
+
+function startDetachedDispatchRunner(options: {
+  readonly manifest: string;
+  readonly providers: string;
+  readonly workers?: number | undefined;
+  readonly workdir: string;
+  readonly parentTaskId: string;
+}): void {
+  const launch = resolveDetachedRunnerLaunch();
+  const args = [
+    ...launch.args,
+    '_dispatch-runner',
+    '--manifest',
+    resolve(options.manifest),
+    '--providers',
+    options.providers,
+    '--workdir',
+    resolve(options.workdir),
+    '--parent-task',
+    options.parentTaskId
+  ];
+  if (options.workers !== undefined) {
+    args.push('--workers', String(options.workers));
+  }
+  const child = spawn(launch.executable, args, {
+    cwd: resolve(options.workdir),
+    env: process.env,
+    detached: true,
+    shell: false,
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  child.unref();
+}
+
+function resolveDetachedRunnerLaunch(): { executable: string; args: string[] } {
+  const currentFile = fileURLToPath(import.meta.url);
+  const distCli = join(dirname(currentFile), '..', 'cli.js');
+  if (currentFile.endsWith('.js') && existsSync(distCli)) {
+    return { executable: process.execPath, args: [distCli] };
+  }
+
+  const sourceCli = resolve('src', 'cli.ts');
+  const tsxCli = resolve('node_modules', 'tsx', 'dist', 'cli.mjs');
+  if (existsSync(sourceCli) && existsSync(tsxCli)) {
+    return { executable: process.execPath, args: [tsxCli, sourceCli] };
+  }
+
+  return { executable: process.execPath, args: [distCli] };
 }
 
 function findSubtask(manifest: SubtaskManifest, subtaskId: string): SubtaskDefinition {

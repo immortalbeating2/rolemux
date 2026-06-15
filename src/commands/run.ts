@@ -5,7 +5,7 @@ import { runWorkflow } from '../core/workflow-runner.js';
 import { runWithFallback } from '../core/fallback.js';
 import type { ProviderCommand, ProviderName } from '../providers/index.js';
 
-export type RunStatus = 'dry-run' | 'success' | 'failed' | 'timeout';
+export type RunStatus = 'dry-run' | 'success' | 'failed' | 'timeout' | 'canceled';
 
 export interface RunCommandOptions {
   provider: string;
@@ -73,6 +73,9 @@ export async function runCommand(options: RunCommandOptions): Promise<RunCommand
     stderr: workflow.stderr,
     status: workflow.status,
     exitCode: workflow.exitCode,
+    startedAt: workflow.startedAt,
+    finishedAt: workflow.finishedAt,
+    durationMs: workflow.durationMs,
     attempts
   });
 

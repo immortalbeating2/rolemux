@@ -98,6 +98,9 @@ RoleMux 应提供三层能力：
 - `rolemux manifest validate`：校验标准 subtask manifest。
 - `rolemux split`：把目录或已有 manifest 规范化为标准 subtask manifest。
 - `rolemux dispatch`：按 provider worker pool 执行 `readonly` 子任务；`codex:2,claude:1` 等 provider quota 会限制真实 provider 进程并发数；`isolated` 子任务在独立 git worktree 中执行并收集 `diff.patch`；也可用 `--dry-run` 预览分发结果，或用 `--resume` 从父任务产物恢复状态摘要。
+- `rolemux dispatch --detach`：后台启动多 CLI agent dispatch，立即返回 parent task id、监控命令和取消命令。
+- `rolemux agents`：查看当前项目的 agent dispatch；支持 `--parent-task`、`--json` 和 `--tui`。
+- `rolemux cancel --parent-task <id>`：请求取消仍在运行的 dispatch，不删除任务产物。
 - `rolemux merge --dry-run`：读取父任务 `diff.patch` 并预览涉及文件，不修改主工作区。
 - `rolemux merge --auto-merge`：显式 opt-in，先用 `git apply --check` 检查所有 patch，再应用 clean patch。
 - `rolemux worktree cleanup`：按父任务 `worktree.txt` 清理 RoleMux 管理的 isolated worktree，支持 dry-run。
@@ -156,6 +159,14 @@ rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' 
 # 执行 readonly/isolated 子任务并写入父/子任务产物
 rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' --workdir .
 
+# 后台执行并监控多 agent dispatch
+rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' --workdir . --detach
+rolemux agents
+rolemux agents --parent-task <parent-task-id>
+rolemux agents --parent-task <parent-task-id> --json
+rolemux agents --parent-task <parent-task-id> --tui
+rolemux cancel --parent-task <parent-task-id>
+
 # 恢复并查看既有父任务的子任务状态
 rolemux dispatch --resume <parent-task-id> --workdir .
 
@@ -175,7 +186,7 @@ rolemux worktree cleanup --parent-task <parent-task-id> --workdir .
 rolemux run --provider claude --role architect --task task.md --dry-run
 ```
 
-`writePolicy=isolated` 要求 `--workdir` 位于 git work tree 中。Windows PowerShell 中通过 `rolemux.ps1` shim 传入逗号列表时建议加引号，例如 `--providers 'codex:2,claude:1'` 和 `--subtasks 'one,two'`。RoleMux 会为每个 isolated 子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}`，provider 在该目录内执行，执行后将 `git diff --binary HEAD` 写入 `.rolemux/tasks/{parent-task-id}/subtasks/{subtask-id}/diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务 metadata、manifest 和子任务 metadata，输出每个子任务的状态、provider、role、产物路径、patch/worktree 是否存在和下一步命令建议；当前不会重新执行失败 provider。`merge --dry-run` 默认只读取并预览这些 patch；只有用户显式使用 `merge --auto-merge` 时，RoleMux 才会运行 `git apply --check` 并应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量 patch。`worktree cleanup` 只清理 `worktree.txt` 记录且位于 `.rolemux/worktrees/` 下的 worktree，不删除任务产物或 git branch。当前阶段不自动解决冲突、不自动清理 worktree。
+`writePolicy=isolated` 要求 `--workdir` 位于 git work tree 中。Windows PowerShell 中通过 `rolemux.ps1` shim 传入逗号列表时建议加引号，例如 `--providers 'codex:2,claude:1'` 和 `--subtasks 'one,two'`。`dispatch --detach` 会写入 `.rolemux/tasks/{parent-task-id}/monitor.json`、`events.jsonl`、`summary.md` 和 `control/`，然后用参数数组启动后台 runner；插件或上层智能体默认轮询 `agents --json` 生成对话内监控卡片，人类可另开终端用 `agents --tui` 查看全屏监控。`cancel` 只写入取消请求并终止仍在运行的 provider，不删除已完成 agent 产物。RoleMux 会为每个 isolated 子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}`，provider 在该目录内执行，执行后将 `git diff --binary HEAD` 写入 `.rolemux/tasks/{parent-task-id}/subtasks/{subtask-id}/diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务 metadata、manifest 和子任务 metadata，输出每个子任务的状态、provider、role、产物路径、patch/worktree 是否存在和下一步命令建议；当前不会重新执行失败 provider。`merge --dry-run` 默认只读取并预览这些 patch；只有用户显式使用 `merge --auto-merge` 时，RoleMux 才会运行 `git apply --check` 并应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量 patch。`worktree cleanup` 只清理 `worktree.txt` 记录且位于 `.rolemux/worktrees/` 下的 worktree，不删除任务产物或 git branch。当前阶段不自动解决冲突、不自动清理 worktree。
 
 ## 7. 推荐目录结构
 
@@ -246,6 +257,10 @@ RoleMux/
   prompt.md
   output.md
   metadata.json
+  monitor.json
+  events.jsonl
+  summary.md
+  control/cancel.json
   runs/
     codex-builder.json
     claude-reviewer.json

@@ -21,11 +21,12 @@ Do not invoke RoleMux when the current Claude session can answer directly withou
 
 ## Workflow
 
-1. Identify whether the task is best handled by `plan`, `run`, `review`, or `discuss`.
+1. Identify whether the task is best handled by `plan`, `run`, `review`, `discuss`, or multi-agent `dispatch`.
 2. Use the user's task file if provided. If no file is provided, create a short task file only when writing is allowed.
 3. Run RoleMux from the project workdir.
-4. Inspect the RoleMux summary and any referenced artifact files.
-5. Return a concise user-facing summary with status, provider, role, and artifact path.
+4. For real multi-agent dispatch, prefer `rolemux dispatch --detach`, then poll `rolemux agents --parent-task <id> --json` and summarize the stable snapshot instead of streaming provider stdout.
+5. Inspect the RoleMux summary and any referenced artifact files.
+6. Return a concise user-facing summary with status, provider, role, and artifact path.
 
 ## Commands
 
@@ -37,9 +38,16 @@ rolemux run --provider claude --role architect --task ./examples/basic-task.md -
 rolemux plan --providers claude,codex --task ./examples/basic-task.md --workdir . --dry-run
 rolemux review --provider codex --role reviewer --task ./examples/basic-task.md --workdir . --dry-run
 rolemux discuss --providers claude,codex,agy --task ./examples/basic-task.md --workdir . --mode parallel --dry-run
+rolemux dispatch --manifest ./rolemux-tasks.json --providers 'codex:1,claude:1,agy:1' --workdir . --detach
+rolemux agents --parent-task <parent-task-id> --json
+rolemux cancel --parent-task <parent-task-id>
 ```
 
 Start with `--dry-run` when the user wants a preview, when provider availability is uncertain, or when the target project should not be changed.
+
+When `dispatch --detach` returns `status: "started"`, use the returned `agentsJsonCommand` for agent-readable monitoring. Report concise conversation cards on meaningful state changes and final status. If the user wants a terminal monitor, tell them to open another terminal in the same project and run the returned `agentsTuiCommand`.
+
+If the user asks to stop updates, stop polling only. If the user asks to cancel the task, call `rolemux cancel --parent-task <id>`.
 
 ## Boundaries
 
@@ -55,6 +63,6 @@ Report:
 
 - The RoleMux command used.
 - Provider and role.
-- Status: dry-run, success, failed, timeout, or blocked.
+- Status: dry-run, started, running, success, failed, timeout, canceled, or blocked.
 - Artifact path when available.
 - Any verification gap or manual follow-up.

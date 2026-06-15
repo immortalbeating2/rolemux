@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "parentTask": {
+    "title": "RoleMux Agents Monitor validation"
+  },
+  "subtasks": [
+    {
+      "id": "codex-plan-a",
+      "title": "Codex plan A",
+      "provider": "codex",
+      "role": "architect",
+      "task": "Return MONITOR_CODEX_PLAN_A and a one-line plan for validating detached agent monitoring.",
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "codex-review-b",
+      "title": "Codex review B",
+      "provider": "codex",
+      "role": "reviewer",
+      "task": "Return MONITOR_CODEX_REVIEW_B and a one-line review of monitor snapshot fields.",
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "claude-build-a",
+      "title": "Claude build A",
+      "provider": "claude",
+      "role": "builder",
+      "task": "Return MONITOR_CLAUDE_BUILD_A and describe the expected task artifacts.",
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "claude-review-b",
+      "title": "Claude review B",
+      "provider": "claude",
+      "role": "reviewer",
+      "task": "Return MONITOR_CLAUDE_REVIEW_B and check that cancel semantics preserve artifacts.",
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "agy-summary-a",
+      "title": "Agy summary A",
+      "provider": "agy",
+      "role": "summarizer",
+      "task": "Return MONITOR_AGY_SUMMARY_A and summarize the agent table columns.",
+      "writePolicy": "readonly"
+    },
+    {
+      "id": "agy-summary-b",
+      "title": "Agy summary B",
+      "provider": "agy",
+      "role": "summarizer",
+      "task": "Return MONITOR_AGY_SUMMARY_B and summarize the TUI controls.",
+      "writePolicy": "readonly"
+    }
+  ]
+}

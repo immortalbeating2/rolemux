@@ -7,6 +7,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   splitting: false,
+  external: ['node-pty'],
   banner: {
     js: '#!/usr/bin/env node'
   }

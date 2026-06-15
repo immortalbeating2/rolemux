@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Task run status persisted in metadata.json. */
-export type TaskRunStatus = 'success' | 'failed' | 'timeout' | 'dry-run';
+export type TaskRunStatus = 'success' | 'failed' | 'timeout' | 'canceled' | 'dry-run';
 
 /** Relative artifact paths written inside a task directory. */
 export interface TaskArtifacts {
@@ -51,7 +51,7 @@ export const taskMetadataSchema = z.object({
   finishedAt: z.string().min(1),
   durationMs: z.number().nonnegative(),
   exitCode: z.number().int().nullable(),
-  status: z.enum(['success', 'failed', 'timeout', 'dry-run']),
+  status: z.enum(['success', 'failed', 'timeout', 'canceled', 'dry-run']),
   artifacts: z.object({
     task: z.string().min(1),
     prompt: z.string().min(1),

@@ -1,6 +1,9 @@
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
+import { agentsCommand } from './commands/agents.js';
+import { cancelCommand } from './commands/cancel.js';
+import { runAgentsTuiSession } from './core/agents-tui.js';
 import { cleanCommand } from './commands/clean.js';
 import { discussCommand } from './commands/discuss.js';
 import { dispatchCommand } from './commands/dispatch.js';
@@ -97,6 +100,7 @@ export function createCli(): Command {
     .option('--workers <workers>', 'worker count for provider-list shortcut', parseInteger)
     .option('--workdir <workdir>', 'working directory', process.cwd())
     .option('--dry-run', 'preview dispatch without executing providers')
+    .option('--detach', 'start dispatch in the background and monitor it through agents')
     .action(async options => {
       if (options.resume !== undefined) {
         printJson(await dispatchResumeCommand({
@@ -113,7 +117,65 @@ export function createCli(): Command {
         providers: options.providers,
         workers: options.workers,
         workdir: options.workdir,
-        dryRun: options.dryRun === true
+        dryRun: options.dryRun === true,
+        detach: options.detach === true
+      }));
+    });
+
+  cli.command('_dispatch-runner', { hidden: true })
+    .description('internal RoleMux detached dispatch runner')
+    .requiredOption('--manifest <manifest>', 'manifest JSON path')
+    .requiredOption('--providers <providers>', 'provider quotas or provider list')
+    .requiredOption('--parent-task <parentTask>', 'preallocated parent task id')
+    .option('--workers <workers>', 'worker count for provider-list shortcut', parseInteger)
+    .option('--workdir <workdir>', 'working directory', process.cwd())
+    .action(async options => {
+      printJson(await dispatchCommand({
+        manifest: options.manifest,
+        providers: options.providers,
+        workers: options.workers,
+        workdir: options.workdir,
+        parentTaskId: options.parentTask,
+        dryRun: false,
+        detach: false
+      }));
+    });
+
+  cli.command('agents')
+    .description('inspect RoleMux multi-agent dispatch status')
+    .option('--parent-task <parentTask>', 'parent task id')
+    .option('--workdir <workdir>', 'working directory', process.cwd())
+    .option('--json', 'print machine-readable monitor snapshot')
+    .option('--tui', 'print terminal monitor view')
+    .action(async options => {
+      if (options.tui === true && options.parentTask !== undefined && process.stdin.isTTY && process.stdout.isTTY) {
+        await runAgentsTuiSession({
+          parentTaskId: options.parentTask,
+          workdir: options.workdir
+        });
+        return;
+      }
+      const result = await agentsCommand({
+        parentTask: options.parentTask,
+        workdir: options.workdir,
+        json: options.json === true,
+        tui: options.tui === true
+      });
+      if (options.json === true) {
+        printJson(result.snapshot ?? result);
+        return;
+      }
+      console.log(result.text);
+    });
+
+  cli.command('cancel')
+    .description('request cancellation for a running RoleMux dispatch')
+    .requiredOption('--parent-task <parentTask>', 'parent task id')
+    .option('--workdir <workdir>', 'working directory', process.cwd())
+    .action(async options => {
+      printJson(await cancelCommand({
+        parentTask: options.parentTask,
+        workdir: options.workdir
       }));
     });
 

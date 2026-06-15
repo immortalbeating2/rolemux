@@ -68,7 +68,14 @@ export async function loadDispatchResume(options: LoadDispatchResumeOptions): Pr
   const successCount = subtasks.filter(subtask => subtask.status === 'success').length;
   const failedCount = subtasks.filter(subtask => subtask.status === 'failed').length;
   const timeoutCount = subtasks.filter(subtask => subtask.status === 'timeout').length;
-  const status: TaskRunStatus = failedCount > 0 ? 'failed' : timeoutCount > 0 ? 'timeout' : 'success';
+  const canceledCount = subtasks.filter(subtask => subtask.status === 'canceled').length;
+  const status: TaskRunStatus = failedCount > 0
+    ? 'failed'
+    : timeoutCount > 0
+      ? 'timeout'
+      : canceledCount > 0
+        ? 'canceled'
+        : 'success';
   const nextCommands = buildNextCommands(options.parentTaskId, subtasks);
   const warnings = buildWarnings(failedCount, timeoutCount);
 

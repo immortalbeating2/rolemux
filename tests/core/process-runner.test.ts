@@ -1,3 +1,6 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { runProcess } from '../../src/core/process-runner.js';
 
@@ -24,5 +27,50 @@ describe('process runner', () => {
     expect(result.status).toBe('failed');
     expect(result.exitCode).toBe(7);
     expect(result.stderr.trim()).toBe('bad');
+  });
+
+  test('closes child stdin so non-interactive providers do not wait forever', async () => {
+    const result = await runProcess({
+      executable: process.execPath,
+      args: ['tests/fixtures/wait-for-stdin-eof.mjs'],
+      timeoutMs: 500
+    });
+
+    expect(result.status).toBe('success');
+    expect(result.stdout.trim()).toBe('stdin-closed:0');
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('writes provided stdin and closes it', async () => {
+    const result = await runProcess({
+      executable: process.execPath,
+      args: ['tests/fixtures/wait-for-stdin-eof.mjs'],
+      stdin: 'hello from stdin',
+      timeoutMs: 500
+    });
+
+    expect(result.status).toBe('success');
+    expect(result.stdout.trim()).toBe('stdin-closed:16');
+    expect(result.exitCode).toBe(0);
+  });
+
+  test('returns failed instead of throwing for synchronous spawn errors on Windows', async () => {
+    if (process.platform !== 'win32') {
+      return;
+    }
+
+    const dir = await mkdtemp(join(tmpdir(), 'rolemux sync spawn '));
+    const command = join(dir, 'provider.cmd');
+    await writeFile(command, '@echo off\r\necho unreachable\r\n', 'utf8');
+
+    const result = await runProcess({
+      executable: command,
+      args: [],
+      timeoutMs: 5000
+    });
+
+    expect(result.status).toBe('failed');
+    expect(result.error?.code).toBe('PROCESS_FAILED');
+    expect(result.stderr).toContain('spawn');
   });
 });

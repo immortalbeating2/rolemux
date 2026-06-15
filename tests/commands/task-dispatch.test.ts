@@ -81,6 +81,84 @@ describe('task dispatch commands', () => {
     expect(result.nextCommands[0]).toContain('rolemux dispatch');
   });
 
+  test('dispatch detach starts monitor artifacts and returns agent commands immediately', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+    const oldLog = process.env.ROLEMUX_SLOW_PROVIDER_LOG;
+    const oldDelay = process.env.ROLEMUX_SLOW_PROVIDER_DELAY_MS;
+    process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = resolve('tests/fixtures/slow-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch detach '));
+      process.env.ROLEMUX_SLOW_PROVIDER_LOG = join(workdir, 'slow-provider.jsonl');
+      process.env.ROLEMUX_SLOW_PROVIDER_DELAY_MS = '500';
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Detached work' },
+        subtasks: [{ id: 'one', title: 'One', task: 'Slow work.', writePolicy: 'readonly' }]
+      }), 'utf8');
+      const startedAt = Date.now();
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'codex:1',
+        workdir,
+        detach: true
+      });
+
+      expect(Date.now() - startedAt).toBeLessThan(1000);
+      expect(result.status).toBe('started');
+      expect(result.parentTaskId).toBeDefined();
+      expect(result.agentsCommand).toContain('rolemux agents --parent-task');
+      expect(result.agentsJsonCommand).toContain('--json');
+      expect(result.agentsTuiCommand).toContain('--tui');
+      expect(result.cancelCommand).toContain('rolemux cancel --parent-task');
+      const monitor = JSON.parse(await readFile(join(result.artifactDir ?? '', 'monitor.json'), 'utf8')) as {
+        agents?: Array<{ id: string; status: string }>;
+      };
+      expect(monitor.agents?.[0]).toMatchObject({ id: 'one', status: 'queued' });
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+      restoreEnv('ROLEMUX_SLOW_PROVIDER_LOG', oldLog);
+      restoreEnv('ROLEMUX_SLOW_PROVIDER_DELAY_MS', oldDelay);
+    }
+  });
+
+  test('dispatch detach runs providers in the background and updates the monitor', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = resolve('tests/fixtures/mock-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch detach background '));
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Detached background work' },
+        subtasks: [{ id: 'one', title: 'One', task: 'Background work.', writePolicy: 'readonly' }]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'codex:1',
+        workdir,
+        detach: true
+      });
+      const snapshot = await waitForMonitorStatus(result.artifactDir ?? '', 'success');
+      const output = await readFile(join(result.artifactDir ?? '', 'subtasks', 'one', 'output.md'), 'utf8');
+
+      expect(snapshot.agents?.[0]).toMatchObject({ id: 'one', status: 'success', lastEvent: 'output.md written' });
+      expect(output).toContain('MOCK_PROVIDER_OUTPUT');
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
   test('dispatch executes readonly subtasks and writes nested artifacts', async () => {
     const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
     const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
@@ -110,10 +188,119 @@ describe('task dispatch commands', () => {
       expect(result.artifactDir).toContain('.rolemux');
 
       const output = await readFile(join(result.artifactDir ?? '', 'subtasks', 'one', 'output.md'), 'utf8');
+      const monitor = JSON.parse(await readFile(join(result.artifactDir ?? '', 'monitor.json'), 'utf8')) as {
+        status?: string;
+        agents?: Array<{ id: string; status: string; lastEvent: string }>;
+      };
+      const events = (await readFile(join(result.artifactDir ?? '', 'events.jsonl'), 'utf8')).trim().split(/\r?\n/);
       expect(output).toContain('MOCK_PROVIDER_OUTPUT');
+      expect(monitor.status).toBe('success');
+      expect(monitor.agents?.[0]).toMatchObject({ id: 'one', status: 'success', lastEvent: 'output.md written' });
+      expect(events.some(line => line.includes('agent-running'))).toBe(true);
+      expect(events.some(line => line.includes('agent-success'))).toBe(true);
     } finally {
       restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
       restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
+  test('dispatch injects allowlisted context for readonly Codex subtasks', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = resolve('tests/fixtures/mock-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch context pack '));
+      await mkdir(join(workdir, 'src'), { recursive: true });
+      await writeFile(join(workdir, 'src', 'target.ts'), 'export const expected = "EXPECTED_CODEX_CONTEXT_PACK_OK";\n', 'utf8');
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Dispatch context pack work' },
+        subtasks: [
+          {
+            id: 'codex-context',
+            title: 'Codex context',
+            provider: 'codex',
+            role: 'reviewer',
+            task: 'Answer using only the injected context.',
+            allowedPaths: ['src/target.ts'],
+            writePolicy: 'readonly'
+          }
+        ]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'codex:1',
+        workdir,
+        dryRun: false
+      });
+
+      expect(result.status).toBe('success');
+      const subtaskDir = join(result.artifactDir ?? '', 'subtasks', 'codex-context');
+      const prompt = await readFile(join(subtaskDir, 'prompt.md'), 'utf8');
+      const metadata = JSON.parse(await readFile(join(subtaskDir, 'metadata.json'), 'utf8')) as {
+        attempts?: Array<{ contextPack?: { includedPaths?: string[]; runWorkdir?: string } }>;
+      };
+      const output = await readFile(join(subtaskDir, 'output.md'), 'utf8');
+      const args = parseMockProviderArgs(output);
+      const cwdArgIndex = args.indexOf('-C');
+
+      expect(prompt).toContain('# Context');
+      expect(prompt).toContain('EXPECTED_CODEX_CONTEXT_PACK_OK');
+      expect(metadata.attempts?.[0]?.contextPack?.includedPaths).toEqual(['src/target.ts']);
+      expect(cwdArgIndex).toBeGreaterThanOrEqual(0);
+      expect(args[cwdArgIndex + 1]).not.toBe(workdir);
+      expect(metadata.attempts?.[0]?.contextPack?.runWorkdir).toBe(args[cwdArgIndex + 1]);
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
+  test('dispatch does not inject context for non-Codex providers', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CLAUDE_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CLAUDE_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_CLAUDE_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CLAUDE_ARGS_PREFIX = resolve('tests/fixtures/mock-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch no context pack '));
+      await mkdir(join(workdir, 'src'), { recursive: true });
+      await writeFile(join(workdir, 'src', 'target.ts'), 'export const expected = "SHOULD_NOT_BE_INJECTED";\n', 'utf8');
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Dispatch non-codex work' },
+        subtasks: [
+          {
+            id: 'claude-context',
+            title: 'Claude context',
+            provider: 'claude',
+            role: 'reviewer',
+            task: 'Answer normally.',
+            allowedPaths: ['src/target.ts'],
+            writePolicy: 'readonly'
+          }
+        ]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'claude:1',
+        workdir,
+        dryRun: false
+      });
+
+      expect(result.status).toBe('success');
+      const prompt = await readFile(join(result.artifactDir ?? '', 'subtasks', 'claude-context', 'prompt.md'), 'utf8');
+      expect(prompt).not.toContain('SHOULD_NOT_BE_INJECTED');
+      expect(prompt).not.toContain('# Context');
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CLAUDE_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CLAUDE_ARGS_PREFIX', oldArgsPrefix);
     }
   });
 
@@ -340,6 +527,26 @@ function parseSlowProviderEvents(raw: string): { event: 'start' | 'end'; time: n
   });
 }
 
+async function waitForMonitorStatus(artifactDir: string, expectedStatus: string): Promise<{
+  status?: string;
+  agents?: Array<{ id: string; status: string; lastEvent: string }>;
+}> {
+  const deadline = Date.now() + 8000;
+  let last: unknown;
+  while (Date.now() < deadline) {
+    try {
+      last = JSON.parse(await readFile(join(artifactDir, 'monitor.json'), 'utf8'));
+      if ((last as { status?: string }).status === expectedStatus) {
+        return last as { status?: string; agents?: Array<{ id: string; status: string; lastEvent: string }> };
+      }
+    } catch {
+      // Background process may not have written the snapshot yet.
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error(`Timed out waiting for monitor status ${expectedStatus}: ${JSON.stringify(last)}`);
+}
+
 function computeMaxConcurrency(events: readonly { event: 'start' | 'end'; time: number }[]): number {
   let active = 0;
   let max = 0;
@@ -354,6 +561,14 @@ function computeMaxConcurrency(events: readonly { event: 'start' | 'end'; time: 
     max = Math.max(max, active);
   }
   return max;
+}
+
+function parseMockProviderArgs(output: string): string[] {
+  const line = output.split(/\r?\n/).find(value => value.startsWith('ARGS='));
+  if (line === undefined) {
+    throw new Error(`Mock provider output did not include ARGS: ${output}`);
+  }
+  return JSON.parse(line.slice('ARGS='.length)) as string[];
 }
 
 async function initRepo(repo: string): Promise<void> {

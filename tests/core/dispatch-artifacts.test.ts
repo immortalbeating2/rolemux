@@ -55,4 +55,54 @@ describe('dispatch artifacts', () => {
     expect(metadata.artifacts.manifest).toBe('manifest.json');
     expect(metadata.dispatch?.subtaskCount).toBe(1);
   });
+
+  test('preserves subtask timing metadata instead of using artifact write time', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch timing '));
+    const subtaskStartedAt = new Date('2026-06-06T01:00:00.000Z');
+    const subtaskFinishedAt = new Date('2026-06-06T01:00:05.250Z');
+    const record = await createDispatchArtifacts({
+      workdir,
+      manifestPath: join(workdir, 'rolemux-tasks.json'),
+      manifest: {
+        version: 1,
+        parentTask: { title: 'Dispatch timed work' },
+        subtasks: [
+          { id: 'one', title: 'One', role: 'builder', task: 'Do one thing.', writePolicy: 'readonly' }
+        ]
+      },
+      workerCount: 1,
+      assignments: [
+        { subtaskId: 'one', workerId: 'codex-1', provider: 'codex', role: 'builder', writePolicy: 'readonly' }
+      ],
+      runs: [
+        {
+          subtaskId: 'one',
+          title: 'One',
+          provider: 'codex',
+          role: 'builder',
+          workerId: 'codex-1',
+          writePolicy: 'readonly',
+          task: 'Do one thing.',
+          prompt: '# Role\nbuilder\n',
+          output: 'MOCK_PROVIDER_OUTPUT',
+          stderr: '',
+          status: 'success',
+          exitCode: 0,
+          startedAt: subtaskStartedAt.toISOString(),
+          finishedAt: subtaskFinishedAt.toISOString(),
+          durationMs: 5250
+        }
+      ]
+    });
+
+    const parentMetadata = parseTaskMetadata(JSON.parse(await readFile(join(record.parentTaskDir, 'metadata.json'), 'utf8')));
+    const subtaskMetadata = parseTaskMetadata(JSON.parse(await readFile(join(record.parentTaskDir, 'subtasks', 'one', 'metadata.json'), 'utf8')));
+
+    expect(parentMetadata.startedAt).toBe(subtaskStartedAt.toISOString());
+    expect(parentMetadata.finishedAt).toBe(subtaskFinishedAt.toISOString());
+    expect(parentMetadata.durationMs).toBe(5250);
+    expect(subtaskMetadata.startedAt).toBe(subtaskStartedAt.toISOString());
+    expect(subtaskMetadata.finishedAt).toBe(subtaskFinishedAt.toISOString());
+    expect(subtaskMetadata.durationMs).toBe(5250);
+  });
 });

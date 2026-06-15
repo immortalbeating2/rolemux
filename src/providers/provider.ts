@@ -13,7 +13,10 @@ export interface ProviderCommand {
   readonly provider: ProviderName;
   readonly executable: string;
   readonly args: readonly string[];
+  readonly stdin?: string | undefined;
   readonly cwd?: string | undefined;
+  readonly timeoutMs?: number | undefined;
+  readonly transport?: 'process' | 'pty' | undefined;
 }
 
 /** Capability summary exposed by a provider adapter. */

@@ -11,7 +11,7 @@ export interface ReviewCommandOptions {
 }
 
 export interface ReviewCommandResult {
-  status: 'dry-run' | 'success' | 'failed' | 'timeout';
+  status: 'dry-run' | 'success' | 'failed' | 'timeout' | 'canceled';
   preview?: ProviderCommand;
   run?: RunCommandResult;
 }

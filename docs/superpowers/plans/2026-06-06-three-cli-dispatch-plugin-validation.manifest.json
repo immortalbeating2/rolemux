@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "parentTask": {
+    "title": "Three CLI dispatch plugin validation",
+    "source": "docs/superpowers/plans/2026-06-06-three-cli-dispatch-plugin-validation.md"
+  },
+  "defaults": {
+    "role": "reviewer",
+    "writePolicy": "readonly"
+  },
+  "subtasks": [
+    {
+      "id": "codex-plugin-path-review",
+      "title": "Codex plugin path review",
+      "provider": "codex",
+      "role": "reviewer",
+      "writePolicy": "readonly",
+      "task": "Review the current RoleMux repository as a read-only Codex worker. Focus on whether the installed RoleMux Skill and CLI dispatch path can support a development task without editing files. Inspect AGENTS.md, docs/progress/status.md, src/core/process-runner.ts, src/providers/codex.ts, src/commands/dispatch.ts, and tests/core/process-runner.test.ts if available. Do not modify files. Return: 1. provider identity, 2. whether the task completed, 3. evidence from files or command behavior, 4. plugin/provider risks, 5. one concrete next validation."
+    },
+    {
+      "id": "claude-plugin-path-review",
+      "title": "Claude plugin path review",
+      "provider": "claude",
+      "role": "reviewer",
+      "writePolicy": "readonly",
+      "task": "Review the current RoleMux repository as a read-only Claude worker. Focus on whether the installed RoleMux Skill and CLI dispatch path can support a development task without editing files. Inspect AGENTS.md, docs/progress/status.md, src/core/process-runner.ts, src/providers/claude.ts, src/commands/dispatch.ts, and tests/core/process-runner.test.ts if available. Do not modify files. Return: 1. provider identity, 2. whether the task completed, 3. evidence from files or command behavior, 4. plugin/provider risks, 5. one concrete next validation."
+    },
+    {
+      "id": "agy-plugin-path-review",
+      "title": "Agy plugin path review",
+      "provider": "agy",
+      "role": "reviewer",
+      "writePolicy": "readonly",
+      "task": "Review the current RoleMux repository as a read-only Agy worker. Focus on whether the installed RoleMux Skill and CLI dispatch path can support a development task without editing files. Inspect AGENTS.md, docs/progress/status.md, src/core/process-runner.ts, src/providers/agy.ts, src/commands/dispatch.ts, and tests/core/process-runner.test.ts if available. Do not modify files. Return: 1. provider identity, 2. whether the task completed, 3. evidence from files or command behavior, 4. plugin/provider risks, 5. one concrete next validation."
+    }
+  ]
+}

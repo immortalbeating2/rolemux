@@ -17,6 +17,9 @@ export interface CreateRunInput {
   readonly status: TaskRunStatus;
   readonly exitCode: number | null;
   readonly attempts?: readonly unknown[] | undefined;
+  readonly startedAt?: string | undefined;
+  readonly finishedAt?: string | undefined;
+  readonly durationMs?: number | undefined;
 }
 
 /** Persisted task run record returned by the store. */
@@ -44,8 +47,8 @@ export function createTaskStore(options: { workdir: string; taskDir?: string }):
     rootDir,
     async createRun(input: CreateRunInput): Promise<TaskRecord> {
       await mkdir(rootDir, { recursive: true });
-      const startedAt = new Date();
-      const taskId = await createUniqueTaskId(rootDir, startedAt);
+      const artifactStartedAt = new Date();
+      const taskId = await createUniqueTaskId(rootDir, artifactStartedAt);
       const taskDir = join(rootDir, taskId);
       await mkdir(taskDir, { recursive: false });
 
@@ -58,13 +61,15 @@ export function createTaskStore(options: { workdir: string; taskDir?: string }):
         report: reportArtifact
       };
 
-      const finishedAt = new Date();
+      const artifactFinishedAt = new Date();
+      const timing = computeRunTiming(input, artifactStartedAt, artifactFinishedAt);
       const metadata = buildMetadata({
         input,
         taskId,
         workdir,
-        startedAt,
-        finishedAt,
+        startedAt: timing.startedAt,
+        finishedAt: timing.finishedAt,
+        durationMs: timing.durationMs,
         artifacts
       });
 
@@ -164,6 +169,7 @@ function buildMetadata(options: {
   workdir: string;
   startedAt: Date;
   finishedAt: Date;
+  durationMs: number;
   artifacts: TaskArtifacts;
 }): TaskMetadata {
   const base: TaskMetadata = {
@@ -172,7 +178,7 @@ function buildMetadata(options: {
     workdir: options.workdir,
     startedAt: options.startedAt.toISOString(),
     finishedAt: options.finishedAt.toISOString(),
-    durationMs: Math.max(0, options.finishedAt.getTime() - options.startedAt.getTime()),
+    durationMs: options.durationMs,
     exitCode: options.input.exitCode,
     status: options.input.status,
     artifacts: options.artifacts
@@ -184,6 +190,37 @@ function buildMetadata(options: {
     ...(options.input.role !== undefined ? { role: options.input.role } : {}),
     ...(options.input.attempts !== undefined ? { attempts: options.input.attempts } : {})
   });
+}
+
+function computeRunTiming(
+  input: CreateRunInput,
+  fallbackStartedAt: Date,
+  fallbackFinishedAt: Date
+): { startedAt: Date; finishedAt: Date; durationMs: number } {
+  const startedAt = parseOptionalDate(input.startedAt);
+  const finishedAt = parseOptionalDate(input.finishedAt);
+  if (startedAt === undefined || finishedAt === undefined) {
+    return {
+      startedAt: fallbackStartedAt,
+      finishedAt: fallbackFinishedAt,
+      durationMs: Math.max(0, fallbackFinishedAt.getTime() - fallbackStartedAt.getTime())
+    };
+  }
+
+  return {
+    startedAt,
+    finishedAt,
+    durationMs: input.durationMs ?? Math.max(0, finishedAt.getTime() - startedAt.getTime())
+  };
+}
+
+function parseOptionalDate(value: string | undefined): Date | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 function ensureInsideRoot(rootDir: string, path: string): void {

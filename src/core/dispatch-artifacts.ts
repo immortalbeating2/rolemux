@@ -3,6 +3,7 @@ import { mkdir, readdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { CliError } from './cli-error.js';
 import type { SubtaskManifest, SubtaskWritePolicy } from './subtask-manifest.js';
+import type { ContextPackSkippedPath } from './context-pack.js';
 import type { TaskMetadata, TaskRunStatus } from './task-metadata.js';
 import type { ProviderName } from '../providers/index.js';
 
@@ -27,8 +28,16 @@ export interface DispatchRunArtifactInput {
   readonly stderr: string;
   readonly status: TaskRunStatus;
   readonly exitCode: number | null;
+  readonly startedAt?: string | undefined;
+  readonly finishedAt?: string | undefined;
+  readonly durationMs?: number | undefined;
   readonly diff?: string | undefined;
   readonly worktreePath?: string | undefined;
+  readonly contextPack?: {
+    readonly includedPaths: readonly string[];
+    readonly skippedPaths: readonly ContextPackSkippedPath[];
+    readonly runWorkdir?: string | undefined;
+  } | undefined;
 }
 
 export interface CreateDispatchArtifactsInput {
@@ -52,21 +61,22 @@ export async function createDispatchArtifacts(input: CreateDispatchArtifactsInpu
   const workdir = resolve(input.workdir);
   const rootDir = resolve(workdir, '.rolemux/tasks');
   await mkdir(rootDir, { recursive: true });
-  const startedAt = new Date();
-  const parentTaskId = input.parentTaskId ?? await createUniqueTaskId(rootDir, startedAt);
+  const artifactStartedAt = new Date();
+  const parentTaskId = input.parentTaskId ?? await createUniqueTaskId(rootDir, artifactStartedAt);
   const parentTaskDir = join(rootDir, parentTaskId);
-  await mkdir(parentTaskDir, { recursive: false });
+  await mkdir(parentTaskDir, { recursive: true });
 
   const summary = renderSummary(input);
   const parentOutput = input.runs.map(run => `## ${run.subtaskId}\n\n${run.output}`).join('\n\n');
   const parentStderr = input.runs.map(run => run.stderr).filter(Boolean).join('\n\n');
-  const finishedAt = new Date();
+  const artifactFinishedAt = new Date();
+  const timing = computeDispatchTiming(input.runs, artifactStartedAt, artifactFinishedAt);
   const metadata = buildDispatchMetadata({
     input,
     parentTaskId,
     workdir,
-    startedAt,
-    finishedAt
+    startedAt: timing.startedAt,
+    finishedAt: timing.finishedAt
   });
 
   await writeFile(join(parentTaskDir, 'manifest.json'), `${JSON.stringify(input.manifest, null, 2)}\n`, 'utf8');
@@ -80,12 +90,14 @@ export async function createDispatchArtifacts(input: CreateDispatchArtifactsInpu
   for (const run of input.runs) {
     const subtaskDir = join(parentTaskDir, 'subtasks', run.subtaskId);
     await mkdir(subtaskDir, { recursive: true });
+    const runTiming = computeRunTiming(run, timing.startedAt, timing.finishedAt);
     const subtaskMetadata = buildSubtaskMetadata({
       run,
       parentTaskId,
       workdir,
-      startedAt,
-      finishedAt
+      startedAt: runTiming.startedAt,
+      finishedAt: runTiming.finishedAt,
+      durationMs: runTiming.durationMs
     });
     await writeFile(join(subtaskDir, 'task.md'), run.task, 'utf8');
     await writeFile(join(subtaskDir, 'prompt.md'), run.prompt, 'utf8');
@@ -124,7 +136,14 @@ function buildDispatchMetadata(options: {
   const successCount = options.input.runs.filter(run => run.status === 'success').length;
   const failedCount = options.input.runs.filter(run => run.status === 'failed').length;
   const timeoutCount = options.input.runs.filter(run => run.status === 'timeout').length;
-  const status: TaskRunStatus = failedCount > 0 ? 'failed' : timeoutCount > 0 ? 'timeout' : 'success';
+  const canceledCount = options.input.runs.filter(run => run.status === 'canceled').length;
+  const status: TaskRunStatus = failedCount > 0
+    ? 'failed'
+    : timeoutCount > 0
+      ? 'timeout'
+      : canceledCount > 0
+        ? 'canceled'
+        : 'success';
 
   return {
     taskId: options.parentTaskId,
@@ -160,6 +179,7 @@ function buildSubtaskMetadata(options: {
   workdir: string;
   startedAt: Date;
   finishedAt: Date;
+  durationMs: number;
 }): TaskMetadata {
   return {
     taskId: `${options.parentTaskId}/${options.run.subtaskId}`,
@@ -169,7 +189,7 @@ function buildSubtaskMetadata(options: {
     workdir: options.workdir,
     startedAt: options.startedAt.toISOString(),
     finishedAt: options.finishedAt.toISOString(),
-    durationMs: Math.max(0, options.finishedAt.getTime() - options.startedAt.getTime()),
+    durationMs: options.durationMs,
     exitCode: options.run.exitCode,
     status: options.run.status,
     artifacts: {
@@ -186,11 +206,62 @@ function buildSubtaskMetadata(options: {
         title: options.run.title,
         workerId: options.run.workerId,
         writePolicy: options.run.writePolicy,
+        ...(options.run.contextPack !== undefined ? { contextPack: options.run.contextPack } : {}),
         ...(options.run.worktreePath !== undefined ? { worktreePath: options.run.worktreePath } : {}),
         ...(options.run.diff !== undefined ? { hasDiff: true } : {})
       }
     ]
   };
+}
+
+function computeDispatchTiming(
+  runs: readonly DispatchRunArtifactInput[],
+  fallbackStartedAt: Date,
+  fallbackFinishedAt: Date
+): { startedAt: Date; finishedAt: Date } {
+  const timings = runs
+    .map(run => computeRunTiming(run, fallbackStartedAt, fallbackFinishedAt))
+    .filter(timing => timing.fromRun);
+
+  if (timings.length === 0) {
+    return { startedAt: fallbackStartedAt, finishedAt: fallbackFinishedAt };
+  }
+
+  const startedAt = new Date(Math.min(...timings.map(timing => timing.startedAt.getTime())));
+  const finishedAt = new Date(Math.max(...timings.map(timing => timing.finishedAt.getTime())));
+  return { startedAt, finishedAt };
+}
+
+function computeRunTiming(
+  run: DispatchRunArtifactInput,
+  fallbackStartedAt: Date,
+  fallbackFinishedAt: Date
+): { startedAt: Date; finishedAt: Date; durationMs: number; fromRun: boolean } {
+  const startedAt = parseOptionalDate(run.startedAt);
+  const finishedAt = parseOptionalDate(run.finishedAt);
+  if (startedAt === undefined || finishedAt === undefined) {
+    return {
+      startedAt: fallbackStartedAt,
+      finishedAt: fallbackFinishedAt,
+      durationMs: Math.max(0, fallbackFinishedAt.getTime() - fallbackStartedAt.getTime()),
+      fromRun: false
+    };
+  }
+
+  return {
+    startedAt,
+    finishedAt,
+    durationMs: run.durationMs ?? Math.max(0, finishedAt.getTime() - startedAt.getTime()),
+    fromRun: true
+  };
+}
+
+function parseOptionalDate(value: string | undefined): Date | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 function renderSummary(input: CreateDispatchArtifactsInput): string {

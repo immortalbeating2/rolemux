@@ -25,4 +25,31 @@ describe('task store', () => {
     expect(record.artifacts.report).toBe('report.html');
     expect(record.metadata.status).toBe('success');
   });
+
+  test('preserves workflow timing metadata when provided', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux task store timing '));
+    const store = createTaskStore({ workdir });
+    const startedAt = new Date('2026-06-07T01:00:00.000Z');
+    const finishedAt = new Date('2026-06-07T01:00:42.500Z');
+
+    const record = await store.createRun({
+      command: 'run',
+      provider: 'agy',
+      role: 'summarizer',
+      task: 'Summarize.',
+      prompt: 'Role: summarizer\nTask: Summarize.',
+      output: '',
+      stderr: 'Provider exited successfully but produced no stdout; treating this run as failed.',
+      status: 'failed',
+      exitCode: 0,
+      startedAt: startedAt.toISOString(),
+      finishedAt: finishedAt.toISOString(),
+      durationMs: 42500
+    });
+
+    expect(record.metadata.startedAt).toBe(startedAt.toISOString());
+    expect(record.metadata.finishedAt).toBe(finishedAt.toISOString());
+    expect(record.metadata.durationMs).toBe(42500);
+    expect(record.metadata.status).toBe('failed');
+  });
 });

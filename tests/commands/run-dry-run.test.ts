@@ -21,6 +21,7 @@ describe('run command dry-run', () => {
     expect(result.status).toBe('dry-run');
     expect(result.command.provider).toBe('codex');
     expect(result.command.args).toContain('exec');
-    expect(result.command.args.join('\n')).toContain('You are the builder');
+    expect(result.command.args.join('\n')).not.toContain('You are the builder');
+    expect(result.command.stdin).toContain('You are the builder');
   });
 });

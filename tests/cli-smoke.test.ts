@@ -19,7 +19,9 @@ describe('CLI smoke', () => {
       'manifest',
       'split',
       'dispatch',
-      'merge'
+      'merge',
+      'agents',
+      'cancel'
     ]));
   });
 });
