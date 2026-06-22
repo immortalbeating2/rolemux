@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
-更新时间：2026-06-15
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 8 worker 并发与 merge 安全修正已实现；本地已安装 Skill bundle 与全局 CLI 已完成复核验证；三 CLI dispatch 插件验证已完成；Agy 非交互 print stdout 缺失、Codex Windows sandbox 问题已复测；RoleMux 已通过 PTY transport 修复真实 Agy 输出捕获，并修复误判成功、metadata duration、Windows ConPTY 退出清理、Codex Windows `.cmd` shim 启动、多行 prompt argv 截断和 readonly context-pack worker 仓库上下文污染问题；真实 Codex/Claude/Agy 三 worker dispatch 已按预设完成标记复测成功；RoleMux 已生成并安装为 Codex Windows App 可用的个人插件 `rolemux@personal`；本轮新增 RoleMux Agents Monitor：`dispatch --detach`、`agents --json`、`agents --tui`、`cancel --parent-task`、monitor artifact 与对话内监控卡片 Skill 规则
+更新时间：2026-06-22
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；大任务分发 Phase 8 worker 并发与 merge 安全修正已实现；本地已安装 Skill bundle 与全局 CLI 已完成复核验证；三 CLI dispatch 插件验证已完成；Agy 非交互 print stdout 缺失、Codex Windows sandbox 问题已复测；RoleMux 已通过 PTY transport 修复真实 Agy 输出捕获，并修复误判成功、metadata duration、Windows ConPTY 退出清理、Codex Windows `.cmd` shim 启动、多行 prompt argv 截断和 readonly context-pack worker 仓库上下文污染问题；真实 Codex/Claude/Agy 三 worker dispatch 已按预设完成标记复测成功；RoleMux 已生成并安装为 Codex Windows App 可用的个人插件 `rolemux@personal`；已新增 RoleMux Agents Monitor：`dispatch --detach`、`agents --json`、`agents --tui`、`cancel --parent-task`、monitor artifact 与对话内监控卡片 Skill 规则；本轮已修正 install/uninstall 目标选择契约：默认 install 只写 shared runtime，Codex/Claude 非插件 Skill 与 Codex App 插件刷新必须显式指定，默认 uninstall 清理 shared runtime 与非插件 Skill，Codex App 插件移除必须显式指定
 
 ## 当前真实状态
 
@@ -69,6 +69,16 @@
   - `rolemux cancel --parent-task <id>` 幂等写入 `control/cancel.json`，runner 会取消未完成 agent，不删除已有产物。
   - `.rolemux/tasks/{parent-task-id}/` 新增 `monitor.json`、`events.jsonl`、运行中 `summary.md` 和 `control/`。
   - Codex/Claude Skill 已更新：真实多 agent dispatch 默认走 `--detach + agents --json`，对话内输出监控卡片；用户需要 TUI 时另开同项目终端运行 `agents --tui`。
+- 本轮修正 install/uninstall 目标选择：
+  - `rolemux install` 默认只写 `~/.rolemux/config.toml` 和 `~/.rolemux/roles`。
+  - `rolemux install --codex` 与 `--claude` 才写非插件 Skill。
+  - `rolemux install --codex-plugin` 只刷新 Codex App 插件源和缓存，不写 `~/.codex/skills`。
+  - `rolemux uninstall` 默认清理 shared runtime 与 Codex/Claude 非插件 Skill；`--codex-plugin` 才处理 Codex App 插件。
+  - `C:\Users\peng8\.agents-skills\self-create-skills` 属于用户个人临时 Skill 分发路径，不纳入 RoleMux 安装流程。
+- 本轮追加通用 Skill 源：
+  - 新增 `skills/rolemux-workflow/SKILL.md` 作为唯一通用内容源。
+  - 已删除仓库内 `skills/codex/` 与 `skills/claude/` 宿主专属 Skill 源副本。
+  - 安装器现在从通用源复制到 Codex/Claude 非插件目标和 Codex App 插件目标，避免宿主副本内容漂移。
 
 ## 产品基线
 

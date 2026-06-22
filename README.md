@@ -2,7 +2,7 @@
 
 RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `codex`、`claude`、`agy` 等 CLI 按角色组织起来，完成规划、实现、审查、讨论和结果留痕。
 
-它不是云端 agent 平台，也不是完整 workflow dashboard。RoleMux 的核心目标是保持轻量：一个 npm CLI、几个 provider adapter、一组 role prompts、Codex/Claude Skill bundle，以及可审计的任务产物目录。
+它不是云端 agent 平台，也不是完整 workflow dashboard。RoleMux 的核心目标是保持轻量：一个 npm CLI、几个 provider adapter、一组 role prompts、一份通用 RoleMux Skill，以及可审计的任务产物目录。
 
 ## 当前状态
 
@@ -14,8 +14,8 @@ RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `co
 
 ## 已实现功能
 
-- `rolemux install`：安装默认配置、roles、Codex Skill、Claude Skill。
-- `rolemux uninstall`：卸载 RoleMux 安装的配置、roles 和 Skill bundle，支持 dry-run。
+- `rolemux install`：默认安装 shared runtime，可显式安装 Codex/Claude 非插件 Skill 或刷新 Codex App 插件。
+- `rolemux uninstall`：默认卸载 shared runtime 与非插件 Skill，Codex App 插件必须显式卸载。
 - `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
 - `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`。
 - `rolemux plan`：让一个或多个 provider 生成计划。
@@ -44,7 +44,7 @@ RoleMux 分为四层：
 src/commands/      CLI 命令实现
 src/core/          prompt、task store、process runner、fallback 等核心逻辑
 src/providers/     codex、claude、agy provider adapter
-skills/            Codex / Claude Skill bundle
+skills/            通用 RoleMux Skill 源
 roles/             默认角色 prompt
 templates/         默认配置和 report 模板
 examples/          示例任务和 mock provider 说明
@@ -96,7 +96,7 @@ rolemux --help
 rolemux install --dry-run
 ```
 
-执行安装：
+执行默认安装：
 
 ```powershell
 rolemux install
@@ -107,6 +107,21 @@ rolemux install
 ```text
 ~/.rolemux/config.toml
 ~/.rolemux/roles/
+```
+
+安装到具体智能体入口需要显式选择：
+
+| 命令 | 目标 | 说明 |
+|---|---|---|
+| `rolemux install` | `~/.rolemux` | 只安装 shared runtime：默认配置和 roles。 |
+| `rolemux install --codex` | `~/.codex/skills/rolemux-workflow/` | 安装 Codex 非插件版 Skill。 |
+| `rolemux install --claude` | `~/.claude/skills/rolemux-workflow/` | 安装 Claude 非插件版 Skill。 |
+| `rolemux install --codex --claude` | Codex + Claude 非插件 Skill | 同时安装两个非插件入口。 |
+| `rolemux install --codex-plugin` | `plugins/rolemux` 与 Codex plugin cache | 刷新 Codex Windows App 个人插件，不写 `~/.codex/skills`。 |
+
+Codex/Claude 非插件 Skill 路径为：
+
+```text
 ~/.codex/skills/rolemux-workflow/
 ~/.claude/skills/rolemux-workflow/
 ```
@@ -142,7 +157,20 @@ rolemux uninstall --keep-config
 ~/.claude/skills/rolemux-workflow/
 ```
 
-卸载命令不会删除用户项目文件，不会修改 `AGENTS.md`，也不会删除 `~/.rolemux` 下未列入目标的自定义文件。
+只卸载某个非插件 Skill：
+
+```powershell
+rolemux uninstall --codex
+rolemux uninstall --claude
+```
+
+显式卸载 Codex App 插件源和缓存：
+
+```powershell
+rolemux uninstall --codex-plugin
+```
+
+卸载命令不会删除用户项目文件，不会修改 `AGENTS.md`，也不会删除 `~/.rolemux` 下未列入目标的自定义文件。默认卸载不会删除 Codex App 插件；插件需要 `--codex-plugin`。
 
 ## 常用命令
 
@@ -295,14 +323,19 @@ command = "agy"
 
 ## Skill 用法
 
-RoleMux 包含两个 Skill bundle：
+RoleMux 只维护一份通用 Skill 源：
 
 ```text
-skills/codex/rolemux-workflow/SKILL.md
-skills/claude/rolemux-workflow/SKILL.md
+skills/rolemux-workflow/SKILL.md
 ```
 
-这些 Skill 用于在 Codex 或 Claude 中触发 RoleMux，例如用户要求：
+安装时按宿主写入不同目标目录：
+
+- `rolemux install --codex` 写入 `~/.codex/skills/rolemux-workflow/`
+- `rolemux install --claude` 写入 `~/.claude/skills/rolemux-workflow/`
+- `rolemux install --codex-plugin` 刷新 Codex App 插件源和缓存
+
+这个 Skill 用于在 Codex、Claude 或其他兼容宿主中触发 RoleMux，例如用户要求：
 
 - 多 CLI 协作
 - 用不同角色并行分析
@@ -321,7 +354,12 @@ Skill 只负责说明何时调用 `rolemux`，provider 的底层参数仍由 `sr
 ```text
 C:\Users\<you>\plugins\rolemux\skills\rolemux-workflow\SKILL.md
 C:\Users\<you>\.codex\plugins\cache\personal\rolemux\0.1.0\skills\rolemux-workflow\SKILL.md
-C:\Users\<you>\.codex\skills\rolemux-workflow\SKILL.md
+```
+
+刷新命令：
+
+```powershell
+rolemux install --codex-plugin
 ```
 
 刷新后可用这些检查确认新规则已进入安装副本：

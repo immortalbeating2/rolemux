@@ -13,7 +13,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包，用于让当前 AI CL
 核心定位：
 
 - 通过 npm/npx 安装，提供统一命令 `rolemux`。
-- 通过 Codex Skill / Claude Skill 按需触发工作流。
+- 通过通用 RoleMux Skill 在 Codex / Claude 等宿主中按需触发工作流。
 - 通过 runner 统一调用 `codex`、`claude`、`agy` 等 CLI。
 - 通过 role prompt 临时赋予不同模型不同职责。
 - 通过 `.rolemux/tasks/{task-id}/` 保存任务输入、运行日志、输出和审查结果。
@@ -36,7 +36,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包，用于让当前 AI CL
 
 - 让用户用一个入口调用多个 AI CLI。
 - 支持按角色分配任务，例如 architect、builder、reviewer、frontend-reviewer。
-- 支持 Codex/Claude Skill 作为工作流入口。
+- 支持一份通用 RoleMux Skill 作为 Codex/Claude 等宿主的工作流入口。
 - 支持 npm/npx 一键安装、检查和卸载。
 - 支持 Windows 优先，同时兼容 macOS/Linux。
 - 保留清晰、可审计的任务产物。
@@ -75,7 +75,7 @@ RoleMux 应提供三层能力：
 
 ```text
 用户任务
-  -> Codex/Claude Skill 识别需要多 CLI 协作
+  -> 通用 RoleMux Skill 识别需要多 CLI 协作
   -> 调用 rolemux run/plan/review
   -> RoleMux 读取 config + role prompt
   -> provider adapter 调用 codex/claude/agy
@@ -87,8 +87,8 @@ RoleMux 应提供三层能力：
 
 ### 5.1 MVP 功能
 
-- `rolemux install`：安装默认配置、roles、Codex Skill、Claude Skill。
-- `rolemux uninstall`：卸载 RoleMux 安装的 config、roles 和 Skill bundle，支持 dry-run 与保留 config。
+- `rolemux install`：默认安装 shared runtime；Codex/Claude 非插件 Skill 和 Codex App 插件刷新必须显式指定。
+- `rolemux uninstall`：默认卸载 shared runtime 与 Codex/Claude 非插件 Skill；Codex App 插件移除必须显式指定。
 - `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
 - `rolemux run`：按 provider + role 执行一次任务。
 - `rolemux plan`：让指定 provider 生成方案。
@@ -133,6 +133,16 @@ rolemux install
 rolemux uninstall --dry-run
 rolemux uninstall
 rolemux uninstall --keep-config
+
+# 显式安装或卸载非插件 Skill
+rolemux install --codex
+rolemux install --claude
+rolemux uninstall --codex
+rolemux uninstall --claude
+
+# 显式刷新或卸载 Codex App 插件
+rolemux install --codex-plugin
+rolemux uninstall --codex-plugin
 
 # 检查环境
 rolemux doctor
@@ -220,12 +230,8 @@ RoleMux/
     roles/
       index.ts
   skills/
-    codex/
-      rolemux-workflow/
-        SKILL.md
-    claude/
-      rolemux-workflow/
-        SKILL.md
+    rolemux-workflow/
+      SKILL.md
   roles/
     architect.md
     builder.md
@@ -246,11 +252,17 @@ RoleMux/
   roles/
   logs/
 
+# 仅在显式 `rolemux install --codex` 时写入
 ~/.codex/skills/rolemux-workflow/
   SKILL.md
 
+# 仅在显式 `rolemux install --claude` 时写入
 ~/.claude/skills/rolemux-workflow/
   SKILL.md
+
+# 仅在显式 `rolemux install --codex-plugin` 时刷新
+~/plugins/rolemux/
+~/.codex/plugins/cache/personal/rolemux/0.1.0/
 
 <project>/.rolemux/tasks/{task-id}/
   task.md
@@ -276,10 +288,12 @@ flowchart TD
   B --> C["检测 codex / claude / agy"]
   C --> D["创建 ~/.rolemux"]
   D --> E["复制默认 roles 与 config"]
-  E --> F["安装 Codex Skill"]
-  E --> G["安装 Claude Skill"]
+  E --> F["可选 --codex 安装 Codex 非插件 Skill"]
+  E --> G["可选 --claude 安装 Claude 非插件 Skill"]
+  E --> P["可选 --codex-plugin 刷新 Codex App 插件"]
   F --> H["输出 doctor 结果"]
   G --> H
+  P --> H
 ```
 
 ### 8.2 运行流程
@@ -304,7 +318,7 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-  participant Skill as Codex/Claude Skill
+  participant Skill as RoleMux Skill
   participant CLI as rolemux CLI
   participant Adapter as Provider Adapter
   participant Tool as codex/claude/agy
@@ -367,7 +381,8 @@ UI 风格建议：开发者工具风格，密度较高，少装饰，突出任�
 - `task-store.ts`：创建任务目录、写入 metadata、保存产物。
 - `providers/*.ts`：不同 CLI 的命令参数适配。
 - `commands/*.ts`：用户命令入口。
-- `skills/*/SKILL.md`：指导 Codex/Claude 何时调用 RoleMux。
+- `skills/rolemux-workflow/SKILL.md`：通用 Skill 源，指导宿主智能体何时调用 RoleMux。
+- 安装器会把通用 Skill 源复制到 Codex/Claude 等宿主目标目录；仓库不再维护宿主专属 Skill 副本。
 
 ### 10.3 Provider 适配建议
 
@@ -398,7 +413,7 @@ agy:
 
 ### 11.1 触发条件
 
-Codex/Claude Skill 在以下场景触发：
+通用 RoleMux Skill 在以下场景触发：
 
 - 用户要求多 CLI 协作。
 - 用户要求 Claude/Codex/Antigravity 互相调用。
@@ -476,7 +491,7 @@ command = "agy"
 | M1 | CLI 骨架，完成 `install`、`doctor`、`run --dry-run` |
 | M2 | Provider MVP，完成 Codex、Claude、Agy 三个 adapter 的真实调用 |
 | M3 | 任务产物，完成 `.rolemux/tasks/{task-id}` 保存、metadata、日志、输出 |
-| M4 | Skill Bundle，完成 Codex Skill、Claude Skill、默认 roles、安装复制逻辑 |
+| M4 | Skill Bundle，完成通用 Skill、默认 roles、按目标安装复制逻辑 |
 | M5 | 工作流命令，完成 `plan`、`review`、`discuss`、并行执行、fallback |
 | M6 | 报告与打包，完成 HTML report、npm publish 准备、README、示例 |
 
@@ -487,12 +502,15 @@ command = "agy"
 - `npx rolemux install` 可执行。
 - `~/.rolemux/config.toml` 被创建。
 - 默认 roles 被安装。
-- Codex Skill 被复制到正确目录。
-- Claude Skill 被复制到正确目录。
+- 默认 `rolemux install` 不写 `~/.codex/skills` 或 `~/.claude/skills`。
+- `rolemux install --codex` 将 Codex 非插件 Skill 复制到正确目录。
+- `rolemux install --claude` 将 Claude 非插件 Skill 复制到正确目录。
+- `rolemux install --codex-plugin` 刷新 Codex App 插件源和缓存，不写 `~/.codex/skills`。
 - 重复执行 install 不破坏用户已有配置。
 - `rolemux uninstall --dry-run` 可列出将删除的 config、roles 和 Skill 目录，不产生删除副作用。
 - `rolemux uninstall` 只删除 RoleMux 明确安装的路径，不删除用户项目文件和 `AGENTS.md`。
 - `rolemux uninstall --keep-config` 保留 `~/.rolemux/config.toml`。
+- `rolemux uninstall --codex-plugin` 只在显式请求时移除 Codex App 插件源和缓存。
 
 ### 14.2 环境验收
 
@@ -553,8 +571,8 @@ command = "agy"
 
 - 在 Windows PowerShell 中执行 install/doctor/run。
 - 在路径含空格的 workdir 中执行任务。
-- Codex Skill 调用 `rolemux plan`。
-- Claude Skill 调用 `rolemux review`。
+- Codex 宿主中的 RoleMux Skill 调用 `rolemux plan`。
+- Claude 宿主中的 RoleMux Skill 调用 `rolemux review`。
 - provider 失败后 fallback 可用。
 
 ### 15.4 发布测试
@@ -593,5 +611,5 @@ RoleMux MVP 完成时，应满足：
 - 用户能用 `rolemux run` 调用 Codex/Claude/Agy 任一 CLI。
 - 用户能给任务指定 role prompt。
 - 每次执行都有可追踪产物。
-- Codex/Claude Skill 能按需调用 RoleMux。
+- 通用 RoleMux Skill 能按需调用 RoleMux，并可安装到 Codex/Claude 等宿主路径。
 - 不修改 `AGENTS.md` 也能完成核心流程。

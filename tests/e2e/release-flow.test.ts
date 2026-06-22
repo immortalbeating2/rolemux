@@ -27,7 +27,13 @@ describe('release flow E2E', () => {
 
     const install = await runCli(['install'], env);
     expect(install.status).toBe('installed');
+    expect(existsSync(join(homeDir, '.rolemux', 'config.toml'))).toBe(true);
+    expect(existsSync(join(homeDir, '.codex', 'skills', 'rolemux-workflow', 'SKILL.md'))).toBe(false);
+
+    const skillInstall = await runCli(['install', '--codex', '--claude'], env);
+    expect(skillInstall.status).toBe('installed');
     expect(existsSync(join(homeDir, '.codex', 'skills', 'rolemux-workflow', 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(homeDir, '.claude', 'skills', 'rolemux-workflow', 'SKILL.md'))).toBe(true);
 
     const run = await runCli(['run', '--provider', 'codex', '--role', 'builder', '--task', 'task.md', '--workdir', workdir], env);
     expect(run.status).toBe('success');

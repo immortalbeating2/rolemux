@@ -32,28 +32,40 @@ export function createCli(): Command {
     .version('0.1.0');
 
   cli.command('install')
-    .description('plan or install RoleMux skill bundles')
+    .description('plan or install RoleMux runtime, optional non-plugin skills, or Codex App plugin refresh')
     .option('--dry-run', 'preview install targets without writing files')
+    .option('--codex', 'also install the Codex non-plugin Skill bundle')
+    .option('--claude', 'also install the Claude non-plugin Skill bundle')
+    .option('--codex-plugin', 'refresh the Codex App plugin source and installed cache')
     .option('--with-agents', 'also plan AGENTS.md integration')
     .action(async options => {
       const result = await installCommand({
         homeDir: process.env.HOME ?? process.env.USERPROFILE ?? process.cwd(),
         projectDir: process.cwd(),
         dryRun: options.dryRun === true,
-        withAgents: options.withAgents === true
+        withAgents: options.withAgents === true,
+        codex: options.codex === true,
+        claude: options.claude === true,
+        codexPlugin: options.codexPlugin === true
       });
       printJson(result);
     });
 
   cli.command('uninstall')
-    .description('remove RoleMux config, roles, and skill bundles')
+    .description('remove RoleMux runtime, non-plugin skills, or explicitly selected Codex App plugin files')
     .option('--dry-run', 'preview uninstall targets without deleting files')
     .option('--keep-config', 'preserve ~/.rolemux/config.toml')
+    .option('--codex', 'only remove the Codex non-plugin Skill bundle')
+    .option('--claude', 'only remove the Claude non-plugin Skill bundle')
+    .option('--codex-plugin', 'remove the Codex App plugin source and installed cache')
     .action(async options => {
       const result = await uninstallCommand({
         homeDir: process.env.HOME ?? process.env.USERPROFILE ?? process.cwd(),
         dryRun: options.dryRun === true,
-        keepConfig: options.keepConfig === true
+        keepConfig: options.keepConfig === true,
+        codex: options.codex === true,
+        claude: options.claude === true,
+        codexPlugin: options.codexPlugin === true
       });
       printJson(result);
     });

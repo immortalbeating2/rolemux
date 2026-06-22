@@ -6,6 +6,9 @@ export interface UninstallCommandOptions {
   homeDir: string;
   dryRun: boolean;
   keepConfig?: boolean;
+  codex?: boolean;
+  claude?: boolean;
+  codexPlugin?: boolean;
 }
 
 export interface UninstallCommandResult {
@@ -16,7 +19,7 @@ export interface UninstallCommandResult {
 }
 
 /**
- * 卸载 RoleMux 明确安装的 config、roles 与 Skill bundle；dry-run 只列出目标。
+ * 卸载 RoleMux 明确安装的 shared runtime、非插件 Skill，或显式选择的 Codex App 插件。
  */
 export async function uninstallCommand(options: UninstallCommandOptions): Promise<UninstallCommandResult> {
   const targets = buildUninstallTargets(options);
@@ -51,13 +54,29 @@ export async function uninstallCommand(options: UninstallCommandOptions): Promis
 }
 
 function buildUninstallTargets(options: UninstallCommandOptions): string[] {
-  const targets = [
-    join(options.homeDir, '.rolemux', 'roles'),
-    join(options.homeDir, '.codex', 'skills', 'rolemux-workflow'),
-    join(options.homeDir, '.claude', 'skills', 'rolemux-workflow')
-  ];
+  const hasExplicitTarget = options.codex === true || options.claude === true || options.codexPlugin === true;
+  const targets: string[] = [];
 
-  if (options.keepConfig !== true) {
+  if (!hasExplicitTarget) {
+    targets.push(join(options.homeDir, '.rolemux', 'roles'));
+  }
+
+  if (!hasExplicitTarget || options.codex === true) {
+    targets.push(join(options.homeDir, '.codex', 'skills', 'rolemux-workflow'));
+  }
+
+  if (!hasExplicitTarget || options.claude === true) {
+    targets.push(join(options.homeDir, '.claude', 'skills', 'rolemux-workflow'));
+  }
+
+  if (options.codexPlugin === true) {
+    targets.push(
+      join(options.homeDir, 'plugins', 'rolemux'),
+      join(options.homeDir, '.codex', 'plugins', 'cache', 'personal', 'rolemux', '0.1.0')
+    );
+  }
+
+  if (!hasExplicitTarget && options.keepConfig !== true) {
     targets.unshift(join(options.homeDir, '.rolemux', 'config.toml'));
   }
 

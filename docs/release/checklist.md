@@ -22,7 +22,10 @@ npm run build
 node .\dist\cli.js --help
 node .\dist\cli.js doctor
 node .\dist\cli.js install --dry-run
+node .\dist\cli.js install --codex --claude --dry-run
+node .\dist\cli.js install --codex-plugin --dry-run
 node .\dist\cli.js uninstall --dry-run
+node .\dist\cli.js uninstall --codex-plugin --dry-run
 node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 npm pack --dry-run
 git diff --check
@@ -32,16 +35,19 @@ Expected result:
 
 - Typecheck, tests, e2e tests, and build exit with code `0`.
 - `test:e2e` uses a mock provider and isolated temporary HOME/workdir to exercise install, non-dry-run run, status, clean, and uninstall.
-- `install --dry-run` lists config, roles, and Codex/Claude Skill targets without writing files.
-- `uninstall --dry-run` lists config, roles, and Codex/Claude Skill targets without deleting files.
+- `install --dry-run` lists only shared runtime targets and marks Codex/Claude/plugin targets as optional-not-selected.
+- `install --codex --claude --dry-run` lists non-plugin Skill targets without writing files.
+- `install --codex-plugin --dry-run` lists Codex App plugin source/cache targets without writing `~/.codex/skills`.
+- `uninstall --dry-run` lists shared runtime plus Codex/Claude non-plugin Skill targets without deleting files.
+- `uninstall --codex-plugin --dry-run` lists only Codex App plugin source/cache targets.
 - `run --dry-run` prints the provider command preview without invoking a real provider.
 - `npm pack --dry-run` includes `dist`, `skills`, `roles`, `templates`, `examples`, `docs/release/checklist.md`, and `README.md`.
 
 ## Package Contents
 
 - [ ] Package includes compiled CLI files under `dist/`.
-- [ ] Package includes `skills/codex/rolemux-workflow/SKILL.md`.
-- [ ] Package includes `skills/claude/rolemux-workflow/SKILL.md`.
+- [ ] Package includes shared Skill source `skills/rolemux-workflow/SKILL.md`.
+- [ ] Package does not include obsolete host-specific Skill source copies under `skills/codex/` or `skills/claude/`.
 - [ ] Package includes default roles under `roles/`.
 - [ ] Package includes `templates/config.toml` and `templates/report.html`.
 - [ ] Package includes `examples/basic-task.md` and `examples/mock-provider/README.md`.
@@ -59,6 +65,7 @@ npm install -g .\rolemux-0.1.0.tgz
 rolemux --help
 rolemux doctor
 rolemux install --dry-run
+rolemux install --codex --claude --dry-run
 rolemux uninstall --dry-run
 rolemux run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 ```
@@ -67,7 +74,9 @@ Verify:
 
 - [ ] Global `rolemux` command resolves.
 - [ ] `doctor` reports provider availability or missing-provider guidance.
-- [ ] Install does not overwrite existing config, roles, or Skill files unless an explicit overwrite option is used.
+- [ ] Default install does not write Codex/Claude non-plugin Skill files.
+- [ ] Explicit `--codex` and `--claude` install non-plugin Skill files without overwriting existing files.
+- [ ] `install --codex-plugin` refreshes Codex App plugin source/cache only when explicitly requested.
 - [ ] Uninstall dry-run lists only RoleMux-owned config, roles, and Skill bundle paths.
 - [ ] Dry-run commands do not create real task output in user projects.
 

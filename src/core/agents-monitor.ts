@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { appendFile, mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { CliError } from './cli-error.js';
 
@@ -53,6 +53,8 @@ export interface MonitorEventInput {
   readonly type: string;
   readonly message: string;
 }
+
+const snapshotOperations = new Map<string, Promise<void>>();
 
 /** Creates the monitor artifacts used by agents, TUI, and conversation cards. */
 export async function createMonitorStore(input: {
@@ -152,9 +154,12 @@ export async function updateMonitorAgent(
 /** Reads the current monitor snapshot for a parent dispatch task. */
 export async function readMonitorSnapshot(input: { workdir: string; parentTaskId: string }): Promise<AgentsMonitorSnapshot> {
   const parentTaskDir = join(resolve(input.workdir), '.rolemux', 'tasks', input.parentTaskId);
+  const snapshotPath = join(parentTaskDir, 'monitor.json');
   try {
-    const raw = await readFile(join(parentTaskDir, 'monitor.json'), 'utf8');
-    return JSON.parse(raw) as AgentsMonitorSnapshot;
+    return await enqueueSnapshotOperation(snapshotPath, async () => {
+      const raw = await readFile(snapshotPath, 'utf8');
+      return JSON.parse(raw) as AgentsMonitorSnapshot;
+    });
   } catch (error) {
     throw new CliError(`Monitor task not found: ${input.parentTaskId}`, {
       code: 'NOT_FOUND',
@@ -274,7 +279,12 @@ function isTerminalAgentStatus(status: AgentMonitorStatus): boolean {
 }
 
 async function writeSnapshot(store: AgentsMonitorStore, snapshot: AgentsMonitorSnapshot): Promise<void> {
-  await writeFile(join(store.parentTaskDir, 'monitor.json'), `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+  const snapshotPath = join(store.parentTaskDir, 'monitor.json');
+  await enqueueSnapshotOperation(snapshotPath, async () => {
+    const tempPath = join(store.parentTaskDir, `monitor.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+    await writeFile(tempPath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+    await rename(tempPath, snapshotPath);
+  });
 }
 
 async function writeSummary(store: AgentsMonitorStore, snapshot: AgentsMonitorSnapshot): Promise<void> {
@@ -297,4 +307,18 @@ export function renderAgentsTable(snapshot: AgentsMonitorSnapshot): string {
   }
   lines.push('');
   return `${lines.join('\n')}\n`;
+}
+
+async function enqueueSnapshotOperation<T>(snapshotPath: string, operation: () => Promise<T>): Promise<T> {
+  const previous = snapshotOperations.get(snapshotPath) ?? Promise.resolve();
+  const operationPromise = previous.catch(() => undefined).then(operation);
+  const storedPromise = operationPromise.then(() => undefined, () => undefined);
+  snapshotOperations.set(snapshotPath, storedPromise);
+  try {
+    return await operationPromise;
+  } finally {
+    if (snapshotOperations.get(snapshotPath) === storedPromise) {
+      snapshotOperations.delete(snapshotPath);
+    }
+  }
 }

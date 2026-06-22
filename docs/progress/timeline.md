@@ -116,6 +116,14 @@
 - 新增 `src/core/agents-monitor.ts`、`src/core/agents-tui.ts`、`src/commands/agents.ts`、`src/commands/cancel.ts` 及对应测试。
 - 更新 README、产品 spec、Codex/Claude Skill，明确默认用 `dispatch --detach + agents --json` 生成对话内监控卡片，人类按需另开终端运行 `agents --tui`。
 
+## 2026-06-22
+
+- 修正 RoleMux install/uninstall 目标选择契约：`install` 默认只安装 shared runtime，`--codex` / `--claude` 才安装非插件 Skill，`--codex-plugin` 才刷新 Codex App 插件源和缓存。
+- 调整 `uninstall` 默认语义为清理 shared runtime 与 Codex/Claude 非插件 Skill；`--codex`、`--claude`、`--codex-plugin` 可只处理显式目标。
+- 明确 `C:\Users\peng8\.agents-skills\self-create-skills` 是用户个人临时 Skill 分发目录，不属于 RoleMux 安装流程。
+- 更新 README、产品 spec、release checklist 与进度状态，避免新用户误以为 Codex App 插件与 `~/.codex/skills` 非插件 Skill 是同一安装面。
+- 追加通用 Skill 源：新增 `skills/rolemux-workflow/SKILL.md`，删除仓库内 Codex/Claude 宿主专属 Skill 源副本，安装器统一从通用源复制到各安装目标。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。

@@ -4,14 +4,14 @@
 
 ## 目标
 
-完成 Codex/Claude Skill bundle、默认 role prompt 和安装复制逻辑，让 RoleMux 能被 AI CLI 以工作流能力调用，而不是只作为人工 CLI 使用。
+完成通用 RoleMux Skill、默认 role prompt 和按目标安装复制逻辑，让 RoleMux 能被 AI CLI 以工作流能力调用，而不是只作为人工 CLI 使用。
 
 ## 范围
 
 本阶段包含：
 
-- 编写 Codex Skill `rolemux-workflow`。
-- 编写 Claude Skill `rolemux-workflow`。
+- 编写通用 Skill `rolemux-workflow`。
+- 安装器把通用 Skill 源复制到 Codex/Claude 等宿主目标目录。
 - 编写默认 roles：architect、builder、reviewer、frontend-reviewer、summarizer。
 - 实现安装器复制 skills、roles、config 模板。
 - 支持 `install --dry-run` 和重复安装保护。
@@ -32,8 +32,7 @@
 
 ## 关键产物
 
-- `skills/codex/rolemux-workflow/SKILL.md`
-- `skills/claude/rolemux-workflow/SKILL.md`
+- `skills/rolemux-workflow/SKILL.md`
 - `roles/architect.md`
 - `roles/builder.md`
 - `roles/reviewer.md`
@@ -53,5 +52,5 @@
 
 ## 风险
 
-- Codex/Claude Skill 路径可能因版本和用户配置不同而变化，安装器需要允许显式目标路径。
+- Codex/Claude Skill 加载路径可能因版本和用户配置不同而变化，安装器需要允许显式目标路径；仓库只维护通用 Skill 源，避免宿主副本漂移。
 - role prompt 过强会诱导写操作，默认 role 应保守并强调职责边界。
