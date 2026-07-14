@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import { getProviderAdapter } from '../../src/providers/index.js';
 
 describe('provider adapters', () => {
-  test.each(['codex', 'claude', 'agy'] as const)('%s returns command arguments as an array', provider => {
+  test.each(['codex', 'claude', 'agy', 'grok'] as const)('%s returns command arguments as an array', provider => {
     const adapter = getProviderAdapter(provider);
     const command = adapter.buildCommand({
       prompt: 'Review this task.',
@@ -18,6 +18,29 @@ describe('provider adapters', () => {
     } else {
       expect(command.args.join(' ')).toContain('Review this task.');
     }
+  });
+
+  test('builds Grok Build single-turn command without unsafe permission bypass', () => {
+    const command = getProviderAdapter('grok').buildCommand({
+      prompt: 'Return exactly OK.',
+      workdir: 'C:/Project With Spaces',
+      role: 'reviewer'
+    });
+
+    expect(command.executable).toBe(process.platform === 'win32' ? 'grok.exe' : 'grok');
+    expect(command.args).toEqual([
+      '--cwd',
+      'C:/Project With Spaces',
+      '--output-format',
+      'plain',
+      '--no-subagents',
+      '--no-memory',
+      '--verbatim',
+      '--single',
+      'Return exactly OK.'
+    ]);
+    expect(command.args).not.toContain('--always-approve');
+    expect(command.args).not.toContain('bypassPermissions');
   });
 
   test('supports provider executable and args-prefix overrides for stable mock runs', () => {

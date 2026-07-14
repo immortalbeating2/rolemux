@@ -1,6 +1,6 @@
 # RoleMux
 
-RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `codex`、`claude`、`agy` 等 CLI 按角色组织起来，完成规划、实现、审查、讨论和结果留痕。
+RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `codex`、`claude`、`agy`、`grok` 等 CLI 按角色组织起来，完成规划、实现、审查、讨论和结果留痕。
 
 它不是云端 agent 平台，也不是完整 workflow dashboard。RoleMux 的核心目标是保持轻量：一个 npm CLI、几个 provider adapter、一组 role prompts、一份通用 RoleMux Skill，以及可审计的任务产物目录。
 
@@ -16,7 +16,7 @@ RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `co
 
 - `rolemux install`：默认安装 shared runtime，可显式安装 Codex/Claude 非插件 Skill 或刷新 Codex App 插件。
 - `rolemux uninstall`：默认卸载 shared runtime 与非插件 Skill，Codex App 插件必须显式卸载。
-- `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
+- `rolemux doctor`：检查 `codex`、`claude`、`agy`、`grok` 是否可用。
 - `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`。
 - `rolemux plan`：让一个或多个 provider 生成计划。
 - `rolemux review`：让指定 provider 以 reviewer 角色审查任务。
@@ -35,7 +35,7 @@ RoleMux 分为四层：
 
 1. CLI command layer：解析命令参数并输出结果。
 2. Core layer：处理 prompt 构建、role 加载、任务存储、fallback、进程执行。
-3. Provider adapter layer：集中封装 `codex`、`claude`、`agy` 的真实命令和参数。
+3. Provider adapter layer：集中封装 `codex`、`claude`、`agy`、`grok` 的真实命令和参数。
 4. Skill/role layer：给 Codex 和 Claude 提供触发说明，并给不同任务注入角色提示词。
 
 核心目录：
@@ -43,7 +43,7 @@ RoleMux 分为四层：
 ```text
 src/commands/      CLI 命令实现
 src/core/          prompt、task store、process runner、fallback 等核心逻辑
-src/providers/     codex、claude、agy provider adapter
+src/providers/     codex、claude、agy、grok provider adapter
 skills/            通用 RoleMux Skill 源
 roles/             默认角色 prompt
 templates/         默认配置和 report 模板
@@ -55,9 +55,17 @@ docs/release/      发布检查清单
 
 - Node.js 20 或更高版本。
 - Windows PowerShell、macOS shell 或 Linux shell。
-- 可选安装本地 provider CLI：`codex`、`claude`、`agy`。
+- 可选安装本地 provider CLI：`codex`、`claude`、`agy`、`grok`。
 
 没有安装 provider CLI 也可以先使用 `--dry-run` 验证命令、prompt 和安装目标。
+
+Grok Build 使用官方包 `@xai-official/grok`，安装与登录由 Grok CLI 自身管理：
+
+```powershell
+npm install -g @xai-official/grok
+grok login
+grok --version
+```
 
 ## 从 GitHub 安装试用
 
@@ -186,10 +194,22 @@ rolemux doctor
 rolemux doctor --providers codex
 ```
 
+只检查 Grok Build：
+
+```powershell
+rolemux doctor --providers grok
+```
+
 预览单 provider 任务：
 
 ```powershell
 rolemux run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
+```
+
+预览 Grok Build 审查任务：
+
+```powershell
+rolemux run --provider grok --role reviewer --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
 让 Codex 和 Claude 生成计划：
@@ -207,7 +227,7 @@ rolemux review --provider codex --role reviewer --task .\examples\basic-task.md 
 预览多 provider 讨论：
 
 ```powershell
-rolemux discuss --providers 'codex,claude,agy' --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
+rolemux discuss --providers 'codex,claude,agy,grok' --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
 
 大任务拆分与分发：
@@ -319,6 +339,10 @@ command = "claude"
 [providers.agy]
 enabled = true
 command = "agy"
+
+[providers.grok]
+enabled = true
+command = "grok"
 ```
 
 ## Skill 用法
@@ -341,7 +365,7 @@ skills/rolemux-workflow/SKILL.md
 - 用不同角色并行分析
 - 让外部 provider 生成计划或审查
 - 保存可审计任务产物
-- 进行 Codex / Claude / Agy 多方讨论
+- 进行 Codex / Claude / Agy / Grok Build 多方讨论
 
 Skill 只负责说明何时调用 `rolemux`，provider 的底层参数仍由 `src/providers/` adapter 层统一封装。
 
@@ -415,6 +439,7 @@ node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-t
 - 默认不读取、记录或输出 secrets、tokens、cookies、私有账号信息或凭据文件。
 - 默认不修改用户项目 `AGENTS.md`。
 - 默认不使用危险 sandbox bypass 参数。
+- Grok adapter 默认使用单轮 plain 输出并禁用 provider 内 subagents 和跨 session memory，不传 `--always-approve` 或 `bypassPermissions`；需要 sandbox 时使用 Grok 原生 `GROK_SANDBOX`。
 - `uninstall` 只删除 RoleMux 明确安装的目标路径，保留未列入目标的用户自定义文件。
 - 外部命令通过 provider adapter 和参数数组集中构造。
 - 测试优先使用 dry-run、fixture、临时目录或 mock provider。

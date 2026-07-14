@@ -39,4 +39,21 @@ describe('doctor command', () => {
     expect(result.ok).toBe(true);
     expect(result.providers.claude.available).toBe(false);
   });
+
+  test('checks Grok Build when requested', async () => {
+    const binDir = await mkdtemp(join(tmpdir(), 'rolemux doctor grok bin '));
+    const executablePath = join(binDir, process.platform === 'win32' ? 'grok.exe' : 'grok');
+    await writeFile(executablePath, process.platform === 'win32' ? '' : '#!/usr/bin/env sh\nexit 0\n', 'utf8');
+    if (process.platform !== 'win32') {
+      await chmod(executablePath, 0o755);
+    }
+
+    const result = await doctorCommand({
+      pathEnv: binDir,
+      providers: ['grok']
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.providers.grok.available).toBe(true);
+  });
 });

@@ -6,7 +6,7 @@
 
 本文件是本项目的项目级约束文件。它只约束 RoleMux 仓库开发过程，不代表 RoleMux 安装后必须修改用户项目的 `AGENTS.md`。RoleMux 产品本身仍以“Skill + runner + role prompts + task artifacts”为核心，默认不要求用户项目引入重型 `AGENTS.md`。
 
-RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当前 AI CLI 能按角色调用 `codex`、`claude`、`agy` 等其他 AI CLI 协作完成分析、规划、实现、审查和验证任务。
+RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当前 AI CLI 能按角色调用 `codex`、`claude`、`agy`、`grok` 等其他 AI CLI 协作完成分析、规划、实现、审查和验证任务。
 
 优先做小而准、可验证、可复现、可安装的改动。不要为了“看起来完整”而过早扩张到复杂 dashboard、完整平台化 workflow engine、强 hooks 治理或生产级多租户插件市场。
 
@@ -45,7 +45,7 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 - 大功能开始前必须读取 `spec/rolemux-development-spec.md`，明确目标、成功标准、不做项、文件范围和验证命令。
 - 阶段开发必须读取对应 `spec/phases/m*.md` 和 `spec/implementation/*-plan.md`；未满足当前阶段退出标准，不得进入下一阶段。
 - RoleMux 产品默认不得要求用户项目修改 `AGENTS.md`；`--with-agents` 只能作为显式可选能力。
-- provider adapter 不得散落在 Skill 文档或命令实现里；`codex`、`claude`、`agy` 的真实调用必须集中在 adapter 层。
+- provider adapter 不得散落在 Skill 文档或命令实现里；`codex`、`claude`、`agy`、`grok` 的真实调用必须集中在 adapter 层。
 - Windows shell quoting 必须谨慎处理；执行外部命令时优先使用参数数组，不拼接可执行 shell 字符串。
 - 默认不使用危险 bypass/sandbox 参数；需要写操作、提权参数或绕过限制时必须由用户明确要求，并在输出中说明风险。
 - 不得读取、记录或输出密钥、Token、Cookie、私有凭据、个人账号信息或本地敏感配置。
@@ -141,7 +141,7 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 
 - 初始化或重构 TypeScript CLI 工程。
 - 新增或重做 `install`、`doctor`、`run`、`plan`、`review`、`discuss` 等命令。
-- 新增或修改 provider adapter，包括 `codex`、`claude`、`agy` 的调用参数。
+- 新增或修改 provider adapter，包括 `codex`、`claude`、`agy`、`grok` 的调用参数。
 - 新增或修改配置 schema、task artifact schema、metadata schema。
 - 新增或修改 Codex Skill、Claude Skill 或默认 role prompt。
 - 引入运行时依赖、打包方式、发布方式或跨平台路径处理。
@@ -165,7 +165,7 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 
 1. M0：项目初始化，完成 package、TypeScript、lint/test/build 基础设施。阶段文档：`spec/phases/m0-project-initialization.md`；实施文档：`spec/implementation/m0-project-initialization-plan.md`。
 2. M1：CLI 骨架，完成 `install`、`doctor`、`run --dry-run`。阶段文档：`spec/phases/m1-cli-skeleton.md`；实施文档：`spec/implementation/m1-cli-skeleton-plan.md`。
-3. M2：Provider MVP，完成 Codex、Claude、Agy 三个 adapter 的真实调用。阶段文档：`spec/phases/m2-provider-adapters.md`；实施文档：`spec/implementation/m2-provider-adapters-plan.md`。
+3. M2：Provider MVP，完成 Codex、Claude、Agy、Grok Build 四个 adapter 的真实调用。阶段文档：`spec/phases/m2-provider-adapters.md`；实施文档：`spec/implementation/m2-provider-adapters-plan.md`。
 4. M3：任务产物，完成 `.rolemux/tasks/{task-id}` 保存、metadata、日志、输出。阶段文档：`spec/phases/m3-task-artifacts.md`；实施文档：`spec/implementation/m3-task-artifacts-plan.md`。
 5. M4：Skill Bundle，完成 Codex Skill、Claude Skill、默认 roles、安装复制逻辑。阶段文档：`spec/phases/m4-skill-bundle.md`；实施文档：`spec/implementation/m4-skill-bundle-plan.md`。
 6. M5：工作流命令，完成 `plan`、`review`、`discuss`、并行执行、fallback。阶段文档：`spec/phases/m5-workflow-commands.md`；实施文档：`spec/implementation/m5-workflow-commands-plan.md`。
@@ -178,9 +178,9 @@ RoleMux 的目标是建设一个轻量多 CLI 工作流插件/工具包，让当
 MVP 必做：
 
 - `npx rolemux install` 可执行。
-- `rolemux doctor` 能检查 `codex`、`claude`、`agy`。
+- `rolemux doctor` 能检查 `codex`、`claude`、`agy`、`grok`。
 - `rolemux run` 能按 provider + role 执行任务或 dry-run。
-- 至少支持 Codex、Claude、Antigravity/agy 三类 provider adapter。
+- 至少支持 Codex、Claude、Antigravity/agy、Grok Build 四类 provider adapter。
 - 任务执行产物写入 `.rolemux/tasks/{task-id}/`。
 - 产物至少包含 `task.md`、`prompt.md`、`output.md`、`metadata.json`。
 - 默认 roles 至少包含 architect、builder、reviewer、frontend-reviewer、summarizer。
@@ -317,7 +317,7 @@ MVP 必做：
 - TypeScript 代码优先小模块、显式类型、清晰函数边界和可测试接口。
 - TypeScript 默认使用 `strict`；新增对外类型、配置、metadata、run result 必须显式建模。
 - 源码文件按职责拆分，原则上单文件控制在 250 行以内；超过时优先拆出纯函数、类型或 adapter 细节。
-- 文件名使用 kebab-case；类型使用 PascalCase；函数、变量和字段使用 camelCase；provider 值使用 `codex`、`claude`、`agy`。
+- 文件名使用 kebab-case；类型使用 PascalCase；函数、变量和字段使用 camelCase；provider 值使用 `codex`、`claude`、`agy`、`grok`。
 - CLI 命令层只做参数解析和用户输出，不承载 provider 细节。
 - provider adapter 只负责构造命令、参数和 provider 特定能力。
 - process runner 统一处理 spawn、超时、stdout/stderr、退出码和错误对象。

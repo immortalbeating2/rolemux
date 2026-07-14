@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createTaskStore } from '../core/task-store.js';
 import { runWorkflow } from '../core/workflow-runner.js';
 import { runWithFallback } from '../core/fallback.js';
-import type { ProviderCommand, ProviderName } from '../providers/index.js';
+import { isProviderName, type ProviderCommand, type ProviderName } from '../providers/index.js';
 
 export type RunStatus = 'dry-run' | 'success' | 'failed' | 'timeout' | 'canceled';
 
@@ -34,18 +34,18 @@ export async function runCommand(options: RunCommandOptions): Promise<RunCommand
   const taskPath = resolve(workdir, options.task);
   const task = await readFile(taskPath, 'utf8');
   const provider = parseProviderName(options.provider);
-  const primaryWorkflow = await runWorkflow({
-    provider,
-    role: options.role,
-    task,
-    workdir,
-    dryRun: options.dryRun === true
-  });
 
   if (options.dryRun === true) {
+    const preview = await runWorkflow({
+      provider,
+      role: options.role,
+      task,
+      workdir,
+      dryRun: true
+    });
     return {
       status: 'dry-run',
-      command: primaryWorkflow.command,
+      command: preview.command,
       task,
       role: options.role
     };
@@ -53,7 +53,13 @@ export async function runCommand(options: RunCommandOptions): Promise<RunCommand
 
   const fallbackProviders = (options.fallbackProviders ?? []).map(parseProviderName);
   const workflow = fallbackProviders.length === 0
-    ? primaryWorkflow
+    ? await runWorkflow({
+        provider,
+        role: options.role,
+        task,
+        workdir,
+        dryRun: false
+      })
     : await runWithFallback([provider, ...fallbackProviders], async fallbackProvider => runWorkflow({
         provider: fallbackProvider,
         role: options.role,
@@ -95,7 +101,7 @@ function hasAttempts(value: unknown): value is { attempts: readonly unknown[] } 
 }
 
 function parseProviderName(provider: string): ProviderName {
-  if (provider === 'codex' || provider === 'claude' || provider === 'agy') {
+  if (isProviderName(provider)) {
     return provider;
   }
 

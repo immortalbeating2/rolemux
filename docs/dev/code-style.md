@@ -34,7 +34,7 @@
 - 类型、接口和类使用 PascalCase，例如 `ProviderAdapter`、`TaskMetadata`。
 - 函数、变量和字段使用 camelCase，例如 `buildProviderCommand`、`taskDir`。
 - 常量使用 camelCase 或 PascalCase；只有跨模块固定协议值才使用全大写。
-- provider 名称使用稳定小写枚举值：`codex`、`claude`、`agy`。
+- provider 名称使用稳定小写枚举值：`codex`、`claude`、`agy`、`grok`。
 - CLI 参数、JSON 字段、TOML 字段一经进入 spec 或测试，必须视为对外契约，修改时同步文档。
 
 ## 注释约定

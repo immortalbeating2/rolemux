@@ -116,9 +116,10 @@ export async function runAgentsTuiSession(options: AgentsTuiSessionOptions): Pro
     if (input.isTTY) {
       input.setRawMode(hadRawMode);
     }
+    input.pause();
     output.write('\n');
   };
-  const onKeypress = (_chunk: string, key: { name?: string | undefined; ctrl?: boolean | undefined }): void => {
+  const onKeypress = (chunk: string, key: { name?: string | undefined; ctrl?: boolean | undefined }): void => {
     void (async () => {
       if (key.ctrl === true && key.name === 'c') {
         close();
@@ -139,7 +140,7 @@ export async function runAgentsTuiSession(options: AgentsTuiSessionOptions): Pro
         footerMessage = 'refreshed';
       } else if (key.name === 'i') {
         expanded = !expanded;
-      } else if (key.name === '?') {
+      } else if (key.name === '?' || chunk === '?') {
         showHelp = !showHelp;
       } else if (key.name === 'o') {
         const snapshot = await readMonitorSnapshot({ workdir: options.workdir, parentTaskId: options.parentTaskId });

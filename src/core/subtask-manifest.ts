@@ -2,7 +2,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 import { z } from 'zod';
 import { CliError } from './cli-error.js';
-import type { ProviderName } from '../providers/index.js';
+import { providerNames, type ProviderName } from '../providers/index.js';
 
 export type SubtaskWritePolicy = 'readonly' | 'isolated';
 
@@ -35,7 +35,7 @@ export interface NormalizeTasksDirectoryInput {
   readonly source?: string | undefined;
 }
 
-const providerNameSchema = z.enum(['codex', 'claude', 'agy']);
+const providerNameSchema = z.enum(providerNames);
 const writePolicySchema = z.enum(['readonly', 'isolated']);
 
 const rawManifestSchema = z.object({

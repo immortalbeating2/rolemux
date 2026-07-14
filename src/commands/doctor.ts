@@ -1,6 +1,5 @@
 import { findExecutable } from '../core/find-executable.js';
-
-export type ProviderName = 'codex' | 'claude' | 'agy';
+import { providerNames, type ProviderName } from '../providers/index.js';
 
 export interface DoctorCommandOptions {
   pathEnv?: string;
@@ -17,18 +16,16 @@ export interface DoctorCommandResult {
   providers: Record<ProviderName, ProviderDoctorResult>;
 }
 
-const defaultProviders: ProviderName[] = ['codex', 'claude', 'agy'];
+const defaultProviders: ProviderName[] = [...providerNames];
 
 /**
  * 检查 provider 可执行文件是否可被 PATH 找到；缺失 provider 不视为命令崩溃。
  */
 export async function doctorCommand(options: DoctorCommandOptions = {}): Promise<DoctorCommandResult> {
   const providers = options.providers ?? defaultProviders;
-  const results: Record<ProviderName, ProviderDoctorResult> = {
-    codex: { available: false },
-    claude: { available: false },
-    agy: { available: false }
-  };
+  const results = Object.fromEntries(
+    providerNames.map(provider => [provider, { available: false }])
+  ) as Record<ProviderName, ProviderDoctorResult>;
 
   for (const provider of providers) {
     const executable = await findExecutable(provider, options.pathEnv === undefined ? {} : { pathEnv: options.pathEnv });

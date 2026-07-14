@@ -38,6 +38,23 @@ describe('subtask manifest', () => {
     })).toThrow('Duplicate subtask id: same');
   });
 
+  test('accepts Grok Build as a subtask provider', () => {
+    const manifest = parseSubtaskManifest({
+      version: 1,
+      parentTask: { title: 'Dispatch work' },
+      subtasks: [
+        {
+          id: 'grok-review',
+          title: 'Review with Grok',
+          provider: 'grok',
+          task: 'Review the implementation.'
+        }
+      ]
+    });
+
+    expect(manifest.subtasks[0]?.provider).toBe('grok');
+  });
+
   test('loads manifest JSON from disk', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rolemux manifest '));
     const manifestPath = join(dir, 'rolemux-tasks.json');

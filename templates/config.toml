@@ -22,6 +22,10 @@ command = "claude"
 enabled = true
 command = "agy"
 
+[providers.grok]
+enabled = true
+command = "grok"
+
 [roles]
 default = "builder"
 architect = "roles/architect.md"

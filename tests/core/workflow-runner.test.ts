@@ -69,6 +69,31 @@ describe('workflow runner', () => {
       restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldArgsPrefix);
     }
   });
+
+  test('runs Grok Build through the shared mock provider override', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_GROK_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_GROK_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_GROK_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_GROK_ARGS_PREFIX = resolve('tests/fixtures/mock-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux workflow grok '));
+      const result = await runWorkflow({
+        provider: 'grok',
+        role: 'reviewer',
+        task: 'Review the adapter.',
+        workdir
+      });
+
+      expect(result.status).toBe('success');
+      expect(result.command.provider).toBe('grok');
+      expect(result.output).toContain('MOCK_PROVIDER_OUTPUT');
+      expect(result.output).toContain('--single');
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_GROK_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_GROK_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
 });
 
 function restoreEnv(name: string, oldValue: string | undefined): void {

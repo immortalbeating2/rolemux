@@ -1,5 +1,5 @@
 import { CliError } from './cli-error.js';
-import type { ProviderName } from '../providers/index.js';
+import { isProviderName, type ProviderName } from '../providers/index.js';
 
 export interface ProviderQuota {
   readonly provider: ProviderName;
@@ -73,7 +73,7 @@ function buildRoundRobinWorkers(providers: ProviderName[], workersCount: number)
 }
 
 function parseProviderName(value: string): ProviderName {
-  if (value === 'codex' || value === 'claude' || value === 'agy') {
+  if (isProviderName(value)) {
     return value;
   }
   throw new CliError(`Unknown provider: ${value}`, {

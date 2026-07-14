@@ -14,7 +14,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包，用于让当前 AI CL
 
 - 通过 npm/npx 安装，提供统一命令 `rolemux`。
 - 通过通用 RoleMux Skill 在 Codex / Claude 等宿主中按需触发工作流。
-- 通过 runner 统一调用 `codex`、`claude`、`agy` 等 CLI。
+- 通过 runner 统一调用 `codex`、`claude`、`agy`、`grok` 等 CLI。
 - 通过 role prompt 临时赋予不同模型不同职责。
 - 通过 `.rolemux/tasks/{task-id}/` 保存任务输入、运行日志、输出和审查结果。
 - 默认不修改 `AGENTS.md`，只提供可选安装项。
@@ -78,7 +78,7 @@ RoleMux 应提供三层能力：
   -> 通用 RoleMux Skill 识别需要多 CLI 协作
   -> 调用 rolemux run/plan/review
   -> RoleMux 读取 config + role prompt
-  -> provider adapter 调用 codex/claude/agy
+  -> provider adapter 调用 codex/claude/agy/grok
   -> 输出写入 .rolemux/tasks/{task-id}/
   -> 主控 AI 汇总结果给用户
 ```
@@ -89,7 +89,7 @@ RoleMux 应提供三层能力：
 
 - `rolemux install`：默认安装 shared runtime；Codex/Claude 非插件 Skill 和 Codex App 插件刷新必须显式指定。
 - `rolemux uninstall`：默认卸载 shared runtime 与 Codex/Claude 非插件 Skill；Codex App 插件移除必须显式指定。
-- `rolemux doctor`：检查 `codex`、`claude`、`agy` 是否可用。
+- `rolemux doctor`：检查 `codex`、`claude`、`agy`、`grok` 是否可用。
 - `rolemux run`：按 provider + role 执行一次任务。
 - `rolemux plan`：让指定 provider 生成方案。
 - `rolemux review`：让指定 provider 审查代码或计划。
@@ -285,7 +285,7 @@ RoleMux/
 ```mermaid
 flowchart TD
   A["用户运行 npx rolemux install"] --> B["检测系统与 Node 版本"]
-  B --> C["检测 codex / claude / agy"]
+  B --> C["检测 codex / claude / agy / grok"]
   C --> D["创建 ~/.rolemux"]
   D --> E["复制默认 roles 与 config"]
   E --> F["可选 --codex 安装 Codex 非插件 Skill"]
@@ -321,7 +321,7 @@ sequenceDiagram
   participant Skill as RoleMux Skill
   participant CLI as rolemux CLI
   participant Adapter as Provider Adapter
-  participant Tool as codex/claude/agy
+  participant Tool as codex/claude/agy/grok
   participant Store as Task Store
 
   Skill->>CLI: rolemux run --provider codex --role builder
@@ -481,6 +481,10 @@ command = "claude"
 [providers.agy]
 enabled = true
 command = "agy"
+
+[providers.grok]
+enabled = true
+command = "grok"
 ```
 
 ## 13. 开发里程碑
@@ -489,7 +493,7 @@ command = "agy"
 |---|---|
 | M0 | 项目初始化，完成 package、TypeScript、lint/test/build 基础设施 |
 | M1 | CLI 骨架，完成 `install`、`doctor`、`run --dry-run` |
-| M2 | Provider MVP，完成 Codex、Claude、Agy 三个 adapter 的真实调用 |
+| M2 | Provider MVP，完成 Codex、Claude、Agy、Grok Build 四个 adapter 的真实调用 |
 | M3 | 任务产物，完成 `.rolemux/tasks/{task-id}` 保存、metadata、日志、输出 |
 | M4 | Skill Bundle，完成通用 Skill、默认 roles、按目标安装复制逻辑 |
 | M5 | 工作流命令，完成 `plan`、`review`、`discuss`、并行执行、fallback |
@@ -514,7 +518,7 @@ command = "agy"
 
 ### 14.2 环境验收
 
-- `rolemux doctor` 能检测 `codex`、`claude`、`agy`。
+- `rolemux doctor` 能检测 `codex`、`claude`、`agy`、`grok`。
 - 缺失 CLI 时给出明确安装或跳过提示。
 - Windows PowerShell 下路径带空格也能正常处理。
 
@@ -560,7 +564,7 @@ command = "agy"
 
 ### 15.2 集成测试
 
-- mock `codex/claude/agy` 可执行文件，验证 spawn 参数。
+- mock `codex/claude/agy/grok` 可执行文件，验证 spawn 参数。
 - `rolemux doctor` 在 CLI 存在/缺失时输出正确。
 - `rolemux run --dry-run` 不创建真实运行输出。
 - `rolemux run` 能完整生成任务产物。
@@ -608,7 +612,7 @@ RoleMux MVP 完成时，应满足：
 
 - 用户能用 `npx rolemux install` 安装。
 - 用户能用 `rolemux doctor` 检查环境。
-- 用户能用 `rolemux run` 调用 Codex/Claude/Agy 任一 CLI。
+- 用户能用 `rolemux run` 调用 Codex/Claude/Agy/Grok Build 任一 CLI。
 - 用户能给任务指定 role prompt。
 - 每次执行都有可追踪产物。
 - 通用 RoleMux Skill 能按需调用 RoleMux，并可安装到 Codex/Claude 等宿主路径。

@@ -8,7 +8,7 @@ import { cleanCommand } from './commands/clean.js';
 import { discussCommand } from './commands/discuss.js';
 import { dispatchCommand } from './commands/dispatch.js';
 import { dispatchResumeCommand } from './commands/dispatch-resume.js';
-import { doctorCommand, type ProviderName } from './commands/doctor.js';
+import { doctorCommand } from './commands/doctor.js';
 import { installCommand } from './commands/install.js';
 import { manifestValidateCommand } from './commands/manifest.js';
 import { mergeCommand } from './commands/merge.js';
@@ -18,6 +18,7 @@ import { runCommand } from './commands/run.js';
 import { splitCommand } from './commands/split.js';
 import { statusCommand } from './commands/status.js';
 import { uninstallCommand } from './commands/uninstall.js';
+import { isProviderName, type ProviderName } from './providers/index.js';
 import { worktreeCleanupCommand } from './commands/worktree.js';
 
 /**
@@ -352,10 +353,6 @@ function parseProviders(value: string | undefined): ProviderName[] | undefined {
   }
 
   return providers.filter(isProviderName);
-}
-
-function isProviderName(value: string): value is ProviderName {
-  return value === 'codex' || value === 'claude' || value === 'agy';
 }
 
 function parseInteger(value: string): number {

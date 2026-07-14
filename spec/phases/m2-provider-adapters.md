@@ -1,17 +1,17 @@
 # M2 阶段开发文档：Provider Adapter MVP
 
-状态：待执行
+状态：已完成，并于 2026-07-13 扩展 Grok Build provider
 
 ## 目标
 
-将 Codex、Claude、Agy 三类 CLI 的真实调用集中到 provider adapter 层，形成可 mock、可审计、可替换的执行边界。
+将 Codex、Claude、Agy、Grok Build 四类 CLI 的真实调用集中到 provider adapter 层，形成可 mock、可审计、可替换的执行边界。
 
 ## 范围
 
 本阶段包含：
 
 - 定义统一 `ProviderAdapter` 接口。
-- 实现 `codex`、`claude`、`agy` adapter 的命令构造。
+- 实现 `codex`、`claude`、`agy`、`grok` adapter 的命令构造。
 - 实现 `process-runner`，统一超时、退出码、stdout/stderr 和错误对象。
 - 用 mock executable 验证参数数组，不依赖真实 AI CLI 成功。
 - 在 `run` 命令中接入 adapter 执行链。
@@ -42,7 +42,7 @@
 
 ## 退出标准
 
-- 三个 adapter 都返回可执行文件名、参数数组和能力描述。
+- 四个 adapter 都返回可执行文件名、参数数组和能力描述。
 - `process-runner` 覆盖 success、non-zero exit、timeout、stderr 捕获。
 - provider 参数测试证明没有 shell 字符串拼接。
 - `run` 能通过 mock provider 执行并返回结构化结果。

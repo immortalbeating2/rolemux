@@ -2,12 +2,14 @@ import { CliError } from '../core/cli-error.js';
 import { agyAdapter } from './agy.js';
 import { claudeAdapter } from './claude.js';
 import { codexAdapter } from './codex.js';
+import { grokAdapter } from './grok.js';
 import { ProviderAdapter, ProviderName } from './provider.js';
 
 const providerAdapters: Record<ProviderName, ProviderAdapter> = {
   codex: codexAdapter,
   claude: claudeAdapter,
-  agy: agyAdapter
+  agy: agyAdapter,
+  grok: grokAdapter
 };
 
 /** Returns a provider adapter by stable provider name. */
@@ -28,3 +30,4 @@ export function listProviderAdapters(): readonly ProviderAdapter[] {
 }
 
 export type { ProviderAdapter, ProviderCommand, ProviderCommandInput, ProviderName } from './provider.js';
+export { isProviderName, providerNames } from './provider.js';

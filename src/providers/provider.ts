@@ -1,5 +1,13 @@
 /** Supported RoleMux provider names. */
-export type ProviderName = 'codex' | 'claude' | 'agy';
+export const providerNames = ['codex', 'claude', 'agy', 'grok'] as const;
+
+/** Stable provider name accepted by RoleMux commands and manifests. */
+export type ProviderName = typeof providerNames[number];
+
+/** Checks an external string against the shared provider registry names. */
+export function isProviderName(value: string): value is ProviderName {
+  return providerNames.some(provider => provider === value);
+}
 
 /** Input used by provider adapters to build a CLI invocation. */
 export interface ProviderCommandInput {

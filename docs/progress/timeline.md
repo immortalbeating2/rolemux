@@ -124,11 +124,28 @@
 - 更新 README、产品 spec、release checklist 与进度状态，避免新用户误以为 Codex App 插件与 `~/.codex/skills` 非插件 Skill 是同一安装面。
 - 追加通用 Skill 源：新增 `skills/rolemux-workflow/SKILL.md`，删除仓库内 Codex/Claude 宿主专属 Skill 源副本，安装器统一从通用源复制到各安装目标。
 
+## 2026-07-13
+
+- 核对本机官方 Grok Build CLI：包名 `@xai-official/grok`，版本 `0.2.99`，可执行文件 `grok.exe`，非交互入口为 `--single`。
+- 新增 `src/providers/grok.ts`，使用 `--cwd`、`--output-format plain`、`--no-subagents`、`--no-memory`、`--verbatim` 和 `--single` 构造参数数组，不默认启用危险权限 bypass。
+- 将 provider 名称集中为共享 tuple，`doctor`、`run`、CLI 校验、worker pool 和 subtask manifest schema 统一接受 `grok`。
+- 新增 Grok adapter、doctor、worker pool、manifest、workflow dry-run 与 mock provider 回归测试，并同步 Skill、配置模板、README、M2 spec 和项目规则。
+
+## 2026-07-14
+
+- 通过 RoleMux 对官方 Grok Build 0.2.99 执行真实只读远端任务：`rolemux run --provider grok --role summarizer`。
+- 真实任务返回唯一标记 `ROLEMUX_GROK_REAL_OK_20260714`，metadata 为 `provider=grok`、`status=success`、`exitCode=0`、`durationMs=27161`，临时工作目录没有额外文件改动。
+- 修复 `run --fallback-providers` 在 fallback 场景中重复执行 primary 的问题；TDD 证明旧实现顺序为 `grok,grok,codex`，修复后严格为 `grok,codex`。
+- 在 `%TEMP%` 隔离 git fixture 中使用一次性 `--permission-mode acceptEdits` 完成真实 Grok isolated write：原主 worktree 保持不变，独立 worktree 测试输出 `WRITE_TEST_OK`，patch 只包含 `value.js`。
+- 真实 Grok core timeout 返回 `status=timeout`、`durationMs=219`，无残留 `grok.exe`；真实 fallback 按 `codex failed -> grok success` 完成并输出 `GROK_FALLBACK_REAL_OK`；真实后台任务取消后 monitor 为 `canceled`，Grok 进程退出且 cancel artifact 保留。
+- Windows PTY 复测发现并修复两个通用 TUI 缺口：Node 对 `?` 的 `key.name` 为 undefined，以及 TUI close 后 stdin 未 pause 导致 CLI 不退出。修复后 Grok 快照上的 `?`、`i`、`o`、`r`、`c c`、`q` 全链路通过，退出码为 0。
+- 可见 Windows Terminal 能启动专用 Grok TUI，但当前 Codex 会话的 GUI SendKeys 未可靠送达终端；该桌面自动化限制与已通过的真实 Windows PTY 交互证据分开记录。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。
 - M1：已完成首轮实现；`install`、`uninstall`、`doctor`、`run --dry-run` 可运行。
-- M2：已完成首轮实现；provider adapter 集中在 `src/providers/`，process runner 使用参数数组。
+- M2：已完成首轮实现并扩展 Grok Build；provider adapter 集中在 `src/providers/`，process runner 使用参数数组。
 - M3：已完成首轮实现；task store 可写入 metadata、核心产物和 HTML report。
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。
