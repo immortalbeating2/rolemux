@@ -2,7 +2,7 @@ import { getProviderAdapter } from '../providers/index.js';
 import { ProviderName, ProviderCommand } from '../providers/provider.js';
 import { buildPrompt } from './prompt-builder.js';
 import { runProcess } from './process-runner.js';
-import { runPtyProcess } from './pty-runner.js';
+import { runPtyProcess, stripTerminalSequences } from './pty-runner.js';
 import { loadRolePrompt } from './role-loader.js';
 
 /** Single workflow run request. */
@@ -76,7 +76,13 @@ export async function runWorkflow(input: WorkflowRunInput): Promise<WorkflowRunR
     ? await runPtyProcess(processInput)
     : await runProcess(processInput);
   const finishedAt = new Date(startedAt.getTime() + processResult.durationMs);
-  const normalizedResult = normalizeProviderResult(processResult);
+  const output = command.stripTerminalOutput === true
+    ? stripTerminalSequences(processResult.stdout)
+    : processResult.stdout;
+  const stderr = command.stripTerminalOutput === true
+    ? stripTerminalSequences(processResult.stderr)
+    : processResult.stderr;
+  const normalizedResult = normalizeProviderResult({ ...processResult, stdout: output, stderr });
 
   return {
     status: normalizedResult.status,
@@ -84,7 +90,7 @@ export async function runWorkflow(input: WorkflowRunInput): Promise<WorkflowRunR
     role: input.role,
     prompt,
     command,
-    output: processResult.stdout,
+    output,
     stderr: normalizedResult.stderr,
     exitCode: processResult.exitCode,
     startedAt: startedAt.toISOString(),

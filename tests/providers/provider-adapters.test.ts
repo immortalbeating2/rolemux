@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import { getProviderAdapter } from '../../src/providers/index.js';
+import { basename } from 'node:path';
 
 describe('provider adapters', () => {
-  test.each(['codex', 'claude', 'agy', 'grok'] as const)('%s returns command arguments as an array', provider => {
+  test.each(['codex', 'claude', 'agy', 'grok', 'opencode'] as const)('%s returns command arguments as an array', provider => {
     const adapter = getProviderAdapter(provider);
     const command = adapter.buildCommand({
       prompt: 'Review this task.',
@@ -41,6 +42,31 @@ describe('provider adapters', () => {
     ]);
     expect(command.args).not.toContain('--always-approve');
     expect(command.args).not.toContain('bypassPermissions');
+  });
+
+  test('builds OpenCode non-interactive command without unsafe auto approval', () => {
+    const prompt = 'Review 100% of this task.\nDo not run: echo BAD & exit.';
+    const command = getProviderAdapter('opencode').buildCommand({
+      prompt,
+      workdir: 'C:/Project With Spaces',
+      role: 'reviewer'
+    });
+
+    expect(process.platform === 'win32' ? basename(command.executable) : command.executable).toBe(
+      process.platform === 'win32' ? 'opencode.exe' : 'opencode'
+    );
+    expect(command.args).toEqual([
+      'run',
+      '--pure',
+      '--dir',
+      'C:/Project With Spaces',
+      '--format',
+      'default',
+      prompt
+    ]);
+    expect(command.args).not.toContain('--auto');
+    expect(command.transport).toBeUndefined();
+    expect(command.stripTerminalOutput).toBe(true);
   });
 
   test('supports provider executable and args-prefix overrides for stable mock runs', () => {

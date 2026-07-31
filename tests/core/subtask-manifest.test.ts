@@ -55,6 +55,23 @@ describe('subtask manifest', () => {
     expect(manifest.subtasks[0]?.provider).toBe('grok');
   });
 
+  test('accepts OpenCode as a subtask provider', () => {
+    const manifest = parseSubtaskManifest({
+      version: 1,
+      parentTask: { title: 'Dispatch work' },
+      subtasks: [
+        {
+          id: 'opencode-review',
+          title: 'Review with OpenCode',
+          provider: 'opencode',
+          task: 'Review the implementation.'
+        }
+      ]
+    });
+
+    expect(manifest.subtasks[0]?.provider).toBe('opencode');
+  });
+
   test('loads manifest JSON from disk', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'rolemux manifest '));
     const manifestPath = join(dir, 'rolemux-tasks.json');

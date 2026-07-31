@@ -15,8 +15,8 @@ describe('run command fallback', () => {
     const oldValues = new Map<string, string | undefined>();
     const overrides = {
       ROLEMUX_COUNTING_PROVIDER_LOG: logPath,
-      ROLEMUX_PROVIDER_GROK_COMMAND: process.execPath,
-      ROLEMUX_PROVIDER_GROK_ARGS_PREFIX: `${fixture};grok;failed`,
+      ROLEMUX_PROVIDER_OPENCODE_COMMAND: process.execPath,
+      ROLEMUX_PROVIDER_OPENCODE_ARGS_PREFIX: `${fixture};opencode;failed`,
       ROLEMUX_PROVIDER_CODEX_COMMAND: process.execPath,
       ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX: `${fixture};codex;success`
     };
@@ -27,7 +27,7 @@ describe('run command fallback', () => {
 
     try {
       const result = await runCommand({
-        provider: 'grok',
+        provider: 'opencode',
         fallbackProviders: ['codex'],
         role: 'summarizer',
         task: taskPath,
@@ -35,7 +35,7 @@ describe('run command fallback', () => {
       });
 
       const providers = (await readFile(logPath, 'utf8')).trim().split(/\r?\n/);
-      expect(providers).toEqual(['grok', 'codex']);
+      expect(providers).toEqual(['opencode', 'codex']);
       expect(result.status).toBe('success');
       expect(result.provider).toBe('codex');
       expect(result.attempts).toHaveLength(2);

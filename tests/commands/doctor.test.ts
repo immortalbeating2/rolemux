@@ -56,4 +56,25 @@ describe('doctor command', () => {
     expect(result.ok).toBe(true);
     expect(result.providers.grok.available).toBe(true);
   });
+
+  test('checks OpenCode when requested', async () => {
+    const binDir = await mkdtemp(join(tmpdir(), 'rolemux doctor opencode bin '));
+    const executablePath = join(binDir, process.platform === 'win32' ? 'opencode.cmd' : 'opencode');
+    await writeFile(executablePath, process.platform === 'win32' ? '@echo off\r\nexit /b 0\r\n' : '#!/usr/bin/env sh\nexit 0\n', 'utf8');
+    if (process.platform === 'win32') {
+      await writeFile(join(binDir, 'opencode'), '#!/usr/bin/env sh\nexit 0\n', 'utf8');
+    }
+    if (process.platform !== 'win32') {
+      await chmod(executablePath, 0o755);
+    }
+
+    const result = await doctorCommand({
+      pathEnv: binDir,
+      providers: ['opencode']
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.providers.opencode.available).toBe(true);
+    expect(result.providers.opencode.executable).toBe(executablePath);
+  });
 });

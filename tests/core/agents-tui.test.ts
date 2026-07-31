@@ -14,6 +14,7 @@ describe('agents TUI renderer', () => {
     expect(text).toContain('RoleMux Agents');
     expect(text).toContain('overall: running');
     expect(text).toContain('> build');
+    expect(text).toContain('opencode');
     expect(text).toContain('last event: provider process started');
   });
 
@@ -116,7 +117,7 @@ function fakeSnapshot(): AgentsMonitorSnapshot {
       {
         id: 'build',
         title: 'Build',
-        cli: 'claude',
+        cli: 'opencode',
         role: 'builder',
         writePolicy: 'isolated',
         status: 'running',

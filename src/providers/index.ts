@@ -3,13 +3,15 @@ import { agyAdapter } from './agy.js';
 import { claudeAdapter } from './claude.js';
 import { codexAdapter } from './codex.js';
 import { grokAdapter } from './grok.js';
+import { opencodeAdapter } from './opencode.js';
 import { ProviderAdapter, ProviderName } from './provider.js';
 
 const providerAdapters: Record<ProviderName, ProviderAdapter> = {
   codex: codexAdapter,
   claude: claudeAdapter,
   agy: agyAdapter,
-  grok: grokAdapter
+  grok: grokAdapter,
+  opencode: opencodeAdapter
 };
 
 /** Returns a provider adapter by stable provider name. */

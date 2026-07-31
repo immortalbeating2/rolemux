@@ -1,5 +1,5 @@
 /** Supported RoleMux provider names. */
-export const providerNames = ['codex', 'claude', 'agy', 'grok'] as const;
+export const providerNames = ['codex', 'claude', 'agy', 'grok', 'opencode'] as const;
 
 /** Stable provider name accepted by RoleMux commands and manifests. */
 export type ProviderName = typeof providerNames[number];
@@ -25,6 +25,7 @@ export interface ProviderCommand {
   readonly cwd?: string | undefined;
   readonly timeoutMs?: number | undefined;
   readonly transport?: 'process' | 'pty' | undefined;
+  readonly stripTerminalOutput?: boolean | undefined;
 }
 
 /** Capability summary exposed by a provider adapter. */

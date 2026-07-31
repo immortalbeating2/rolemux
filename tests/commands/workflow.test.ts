@@ -14,14 +14,14 @@ describe('workflow commands', () => {
 
     const plan = await planCommand({ providers: ['codex', 'claude'], task, workdir, dryRun: true });
     const review = await reviewCommand({ provider: 'codex', task, workdir, dryRun: true });
-    const discuss = await discussCommand({ providers: ['codex', 'claude', 'agy', 'grok'], task, workdir, mode: 'parallel', dryRun: true });
+    const discuss = await discussCommand({ providers: ['codex', 'claude', 'agy', 'grok', 'opencode'], task, workdir, mode: 'parallel', dryRun: true });
 
     expect(plan.status).toBe('dry-run');
     expect(plan.previews).toHaveLength(2);
     expect(review.status).toBe('dry-run');
     expect(discuss.status).toBe('dry-run');
-    expect(discuss.previews).toHaveLength(4);
-    expect(discuss.previews?.at(-1)?.provider).toBe('grok');
+    expect(discuss.previews).toHaveLength(5);
+    expect(discuss.previews?.at(-1)?.provider).toBe('opencode');
   });
 
   test('discuss rejects invalid mode values', async () => {

@@ -25,11 +25,12 @@ describe('worker pool', () => {
   });
 
   test('expands explicit provider quotas into workers', () => {
-    expect(buildWorkerPool({ providers: 'codex:2,agy:1,grok:1' })).toEqual([
+    expect(buildWorkerPool({ providers: 'codex:2,agy:1,grok:1,opencode:1' })).toEqual([
       { id: 'codex-1', provider: 'codex' },
       { id: 'codex-2', provider: 'codex' },
       { id: 'agy-1', provider: 'agy' },
-      { id: 'grok-1', provider: 'grok' }
+      { id: 'grok-1', provider: 'grok' },
+      { id: 'opencode-1', provider: 'opencode' }
     ]);
   });
 });

@@ -42,7 +42,9 @@ function executableCandidates(name: string, platform: NodeJS.Platform): string[]
   const extensions = (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM')
     .split(';')
     .filter(extension => extension.length > 0);
-  return [name, ...extensions.map(extension => `${name}${extension.toLowerCase()}`)];
+  // Windows CreateProcess only resolves executable extensions from PATHEXT;
+  // npm's extensionless POSIX shim may coexist with the runnable .cmd file.
+  return extensions.map(extension => `${name}${extension.toLowerCase()}`);
 }
 
 async function canExecute(path: string): Promise<boolean> {
