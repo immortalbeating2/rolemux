@@ -1,6 +1,6 @@
 ---
 name: rolemux-workflow
-description: Use RoleMux when the current AI session needs lightweight multi-CLI collaboration, role-based delegation, planning, review, discussion, or a dry-run preview across Codex, Claude, Agy, and Grok Build providers.
+description: Use RoleMux when the current AI session needs lightweight multi-CLI collaboration, role-based delegation, planning, review, discussion, or a dry-run preview across Codex, Claude, Agy, Grok Build, and OpenCode providers.
 ---
 
 # RoleMux Workflow
@@ -11,7 +11,7 @@ Use this skill when the user asks the current AI session to coordinate work with
 
 Invoke RoleMux when the user asks for any of these:
 
-- Multi-CLI collaboration with Codex, Claude, Agy/Antigravity, or Grok Build.
+- Multi-CLI collaboration with Codex, Claude, Agy/Antigravity, Grok Build, or OpenCode.
 - Role-based work such as architect, builder, reviewer, frontend-reviewer, or summarizer.
 - A plan, review, implementation pass, or discussion handled by another provider.
 - A dry-run preview of what RoleMux would execute.
@@ -37,13 +37,13 @@ rolemux doctor
 rolemux run --provider codex --role builder --task ./examples/basic-task.md --workdir . --dry-run
 rolemux plan --providers claude,codex --task ./examples/basic-task.md --workdir . --dry-run
 rolemux review --provider codex --role reviewer --task ./examples/basic-task.md --workdir . --dry-run
-rolemux discuss --providers claude,codex,agy,grok --task ./examples/basic-task.md --workdir . --mode parallel --dry-run
-rolemux dispatch --manifest ./rolemux-tasks.json --providers 'codex:1,claude:1,agy:1,grok:1' --workdir . --detach
+rolemux discuss --providers claude,codex,agy,grok,opencode --task ./examples/basic-task.md --workdir . --mode parallel --dry-run
+rolemux dispatch --manifest ./rolemux-tasks.json --providers 'codex:1,claude:1,agy:1,grok:1,opencode:1' --workdir . --detach
 rolemux agents --parent-task <parent-task-id> --json
 rolemux cancel --parent-task <parent-task-id>
 ```
 
-On Windows PowerShell, either `./examples/basic-task.md` or `.\examples\basic-task.md` is acceptable. Quote comma-separated provider lists when using the PowerShell shim, for example `--providers 'codex:1,claude:1,agy:1,grok:1'`.
+On Windows PowerShell, either `./examples/basic-task.md` or `.\examples\basic-task.md` is acceptable. Quote comma-separated provider lists when using the PowerShell shim, for example `--providers 'codex:1,claude:1,agy:1,grok:1,opencode:1'`.
 
 Use `--dry-run` first when the user asks to inspect the planned execution or when the target project should not be modified.
 
@@ -53,7 +53,7 @@ If the user says "stop reporting" or equivalent, stop polling `agents --json` on
 
 ## Boundaries
 
-- Do not hardcode low-level `codex`, `claude`, `agy`, or `grok` command arguments in this skill.
+- Do not hardcode low-level `codex`, `claude`, `agy`, `grok`, or `opencode` command arguments in this skill.
 - Do not use dangerous sandbox bypass flags unless the user explicitly requests them and accepts the risk.
 - Do not read or print secrets, tokens, cookies, private account data, or local credential files.
 - Do not require the user's project to modify `AGENTS.md`. Treat `--with-agents` as an explicit opt-in only.

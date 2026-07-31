@@ -141,11 +141,21 @@
 - Windows PTY 复测发现并修复两个通用 TUI 缺口：Node 对 `?` 的 `key.name` 为 undefined，以及 TUI close 后 stdin 未 pause 导致 CLI 不退出。修复后 Grok 快照上的 `?`、`i`、`o`、`r`、`c c`、`q` 全链路通过，退出码为 0。
 - 可见 Windows Terminal 能启动专用 Grok TUI，但当前 Codex 会话的 GUI SendKeys 未可靠送达终端；该桌面自动化限制与已通过的真实 Windows PTY 交互证据分开记录。
 
+## 2026-07-31
+
+- 将 OpenCode 1.18.10 作为第五个 provider `opencode` 接入共享 adapter registry、doctor、run/fallback、worker pool、manifest、配置和通用 Skill。
+- Windows 直接解析并启动官方 `opencode-ai/bin/opencode.exe`，避免 npm `.cmd` shim 重解释多行和 `%` prompt；默认使用 `run --pure`，不启用危险 `--auto`。
+- OpenCode 复用普通 process runner 与现有 ANSI 清理，不引入专属 PTY provider 生命周期或 OpenCode TUI。
+- 自动化测试覆盖 adapter、doctor、worker、manifest、workflow、fallback、timeout/cancel 与共享 TUI；真实验证覆盖只读、isolated write、timeout、fallback、后台 cancel 和 Windows PTY TUI。
+- 真实 isolated write 未启用 `--auto`，仅修改隔离 worktree；原 worktree 保持不变。
+- 完整 release 门禁通过：109 项单测、3 项 E2E、build/pack、runtime audit 0 漏洞和 whitespace 检查。
+- 刷新 Codex 插件源/cache、Claude junction 目标和 `.agents-skills` 副本，6 份 Skill SHA-256 完全一致；全局 RoleMux CLI 已识别 `opencode`。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。
 - M1：已完成首轮实现；`install`、`uninstall`、`doctor`、`run --dry-run` 可运行。
-- M2：已完成首轮实现并扩展 Grok Build；provider adapter 集中在 `src/providers/`，process runner 使用参数数组。
+- M2：已完成首轮实现并扩展 Grok Build、OpenCode；provider adapter 集中在 `src/providers/`，process runner 使用参数数组。
 - M3：已完成首轮实现；task store 可写入 metadata、核心产物和 HTML report。
 - M4：已完成首轮实现；Codex/Claude Skill bundle 与默认 role prompts 已存在。
 - M5：已完成首轮实现；`plan`、`review`、`discuss` 支持 dry-run，fallback core 已实现。

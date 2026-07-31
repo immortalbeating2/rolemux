@@ -26,6 +26,10 @@ command = "agy"
 enabled = true
 command = "grok"
 
+[providers.opencode]
+enabled = true
+command = "opencode"
+
 [roles]
 default = "builder"
 architect = "roles/architect.md"

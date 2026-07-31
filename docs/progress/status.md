@@ -1,7 +1,7 @@
 # RoleMux 当前状态
 
-更新时间：2026-07-14
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；官方 Grok Build CLI 已作为第四个 provider `grok` 接入 adapter、doctor、run/fallback、worker pool、manifest、Skill 与配置文档，并完成真实只读、isolated write、timeout、fallback、cancel 和 Windows PTY TUI 认证；本轮同时修复 fallback primary 重复执行、TUI `?` 键识别和 TUI 退出后 stdin 未 pause 的生命周期问题；大任务分发 Phase 8 worker 并发与 merge 安全修正已实现；本地已安装 Skill bundle 与全局 CLI 已完成复核验证；Codex/Claude/Agy 三 CLI 历史 dispatch 验证已完成；RoleMux 已生成并安装为 Codex Windows App 可用的个人插件 `rolemux@personal`；install/uninstall 目标选择契约保持为默认只处理 shared runtime，宿主 Skill 与 Codex App 插件必须显式指定
+更新时间：2026-07-31
+当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；OpenCode CLI 已作为第五个 provider `opencode` 接入 adapter、doctor、run/fallback、worker pool、manifest、Skill 与配置文档，并完成真实只读、isolated write、timeout、fallback、cancel 和 Windows PTY TUI 认证；官方 Grok Build 仍保持第四个 provider 的完整认证基线；大任务分发 Phase 8 worker 并发与 merge 安全修正已实现；RoleMux 已生成并安装为 Codex Windows App 可用的个人插件 `rolemux@personal`；install/uninstall 目标选择契约保持为默认只处理 shared runtime，宿主 Skill 与 Codex App 插件必须显式指定
 
 ## 当前真实状态
 
@@ -24,6 +24,9 @@
 - 已实现 CLI 命令：`install`、`doctor`、`run`、`status`、`clean`、`plan`、`review`、`discuss`。
 - 已实现 core/provider/report 模块：provider adapter、process runner、task store、metadata、fallback、prompt builder、HTML report。
 - 2026-07-13 新增官方 Grok Build provider：`grok` 使用单轮 plain 输出，默认禁用 Grok 内部 subagents 和跨 session memory，不启用危险权限 bypass；provider 名称改为共享 tuple，供 CLI、doctor、worker pool 和 manifest schema 复用。
+- 2026-07-31 新增 OpenCode provider：`opencode` 使用 `run --pure` 非交互模式，Windows 直接启动官方 `opencode.exe`，不经过会重解释多行与 `%` 的 npm `.cmd` shim，默认不启用危险 `--auto`。
+- OpenCode 1.18.10 已通过真实只读、isolated write、core timeout、真实 fallback、后台 cancel 与 Windows PTY agents TUI 认证；所有临时认证目录和进程已清理。
+- Codex 插件、Claude junction 目标和 `.agents-skills` 保留副本已同步到当前通用 Skill，6 份 SHA-256 一致。
 - 已新增 Codex/Claude Skill bundle、默认 roles、config/report 模板、examples 和 release checklist。
 - 当前开发分支：`main`。
 - 已推送远程仓库：`https://github.com/immortalbeating2/rolemux`。
@@ -48,7 +51,7 @@
 - 本轮已完成任务分发 Phase 7：`merge --subtasks one,two` 可只预览或应用指定子任务的 `diff.patch`；未指定时保持处理全部 patch，指定子任务缺少 patch 时返回 `NOT_FOUND`。
 - 本轮新增 Phase 8 实施计划：`docs/superpowers/plans/2026-06-05-task-dispatch-phase8.md`。
 - 本轮已完成任务分发 Phase 8：真实 `dispatch` 执行会按 provider quota 限制并发；`merge --dry-run --auto-merge` 和空 `--subtasks` 会返回 `INVALID_ARGUMENT`；新增 worker CLI E2E 覆盖 manifest validate、dispatch、resume、选择性 merge 和 cleanup dry-run。
-- 下一阶段设计结论：标准 subtask manifest 作为核心契约；provider worker pool 支持 `codex:2,claude:1,agy:1,grok:1` 和 `--workers N` 快捷语义；写代码 worker 默认独立 git worktree；默认只预览合并，`merge --auto-merge` 必须显式 opt-in，worktree 清理必须显式调用。
+- 下一阶段设计结论：标准 subtask manifest 作为核心契约；provider worker pool 支持 `codex:2,claude:1,agy:1,grok:1,opencode:1` 和 `--workers N` 快捷语义；写代码 worker 默认独立 git worktree；默认只预览合并，`merge --auto-merge` 必须显式 opt-in，worktree 清理必须显式调用。
 - 本轮基于交接文档完成本地已安装 RoleMux Skill bundle 与全局 `rolemux` CLI 复核验证：安装目标存在且与仓库源文件 SHA256 一致，CLI dry-run、worker dispatch dry-run、mock provider 真实 run、typecheck、unit test、E2E 和 whitespace 检查均已执行。
 - 本轮新增 process runner stdin EOF 回归测试，并修复 `runProcess` 未关闭 child stdin 导致 Codex `exec` 等待额外 stdin 的问题；真实 `rolemux run --provider codex` 已复测成功。
 - 本轮新增三 CLI dispatch 插件验证方案与 manifest，真实分发只读开发型任务给 `codex`、`claude`、`agy`；dispatch parent task id 为 `20260606T130912-8d79f3`，resume 显示 3 个子任务 metadata 均为 success，但 artifact 检查发现 Codex 嵌套 worker 无法读取文件、Agy exit 0 但无输出、dispatch duration metadata 为 0。
@@ -87,7 +90,7 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 
 - 通过 npm/npx 安装。
 - 通过 Codex Skill / Claude Skill 按需触发。
-- 通过 runner 统一调用 `codex`、`claude`、`agy`、`grok`。
+- 通过 runner 统一调用 `codex`、`claude`、`agy`、`grok`、`opencode`。
 - 通过 role prompt 赋予不同模型不同职责。
 - 通过 `.rolemux/tasks/{task-id}/` 保存任务输入、运行日志、输出和审查结果。
 - 默认不要求用户项目修改 `AGENTS.md`。
@@ -108,9 +111,9 @@ RoleMux 是一个轻量多 CLI 工作流插件/工具包：
 1. 继续关注 Agy 1.0.6 是否提供官方机器可读 stdout/JSON 输出方式；当前 RoleMux 已用 PTY/ConPTY 作为 Windows 兼容捕获方案。
 2. Codex readonly multifile dispatch 当前优先使用 context-pack；真正需要让 nested Codex 直接用本地文件工具的大范围写作任务，仍可能受 Codex CLI Windows sandbox 限制影响，默认不使用危险 bypass。
 3. 后续可补强 `dispatch --resume` 的 warning 展示，把 empty output、stderr 错误模式、context-pack 跳过路径和 provider 环境异常汇总到 summary。
-4. 若用户确认需要同步远程，提交并推送当前 stdin 回归修复、三 CLI 验证方案、Agy/Codex 修复和进度记录。
+4. OpenCode 当前固定使用 `run --pure`；后续版本升级时复核官方 npm 包内 exe 路径、权限默认值和输出格式。
 5. RoleMux Agents Monitor 后续可继续增强：更细的 provider activity 摘要、PTY provider 的更强取消确认、失败 agent 重跑和完成后 HTML report 汇总 monitor snapshot。
-6. Grok Build 已完成当前 MVP 范围的真实认证；后续重点是把 core `timeoutMs` 暴露为明确 CLI 参数，以及在可用的桌面自动化通道中补录 Windows Terminal 视觉截图证据。
+6. Grok Build 与 OpenCode 已完成当前 MVP 范围的真实认证；后续重点是把 core `timeoutMs` 暴露为明确 CLI 参数，以及在可用的桌面自动化通道中补录 Windows Terminal 视觉截图证据。
 
 ## 本次验证记录
 
@@ -332,7 +335,7 @@ node .\dist\cli.js install --codex-plugin
 
 ## 已知风险
 
-- 真实 `codex`、`claude`、`agy`、`grok` CLI 参数可能随版本变化，后续必须用 `doctor` 和 adapter 层缓冲。
+- 真实 `codex`、`claude`、`agy`、`grok`、`opencode` CLI 参数可能随版本变化，后续必须用 `doctor` 和 adapter 层缓冲。
 - Windows 路径与 shell quoting 是高风险点，后续必须以参数数组执行外部命令。
 - Windows 下使用 `.cmd` 模拟 provider 时可能被真实全局 CLI 抢先解析；当前 Grok mock 验证改用显式 Node executable override，已成功生成任务产物。
 - 完整 dev dependency audit 仍报告 Vite 1 个 high 与 esbuild 1 个 low；runtime dependency audit 为 0，依赖升级不混入本次 provider 功能。

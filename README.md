@@ -1,6 +1,6 @@
 # RoleMux
 
-RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `codex`、`claude`、`agy`、`grok` 等 CLI 按角色组织起来，完成规划、实现、审查、讨论和结果留痕。
+RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `codex`、`claude`、`agy`、`grok`、`opencode` 等 CLI 按角色组织起来，完成规划、实现、审查、讨论和结果留痕。
 
 它不是云端 agent 平台，也不是完整 workflow dashboard。RoleMux 的核心目标是保持轻量：一个 npm CLI、几个 provider adapter、一组 role prompts、一份通用 RoleMux Skill，以及可审计的任务产物目录。
 
@@ -16,7 +16,7 @@ RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `co
 
 - `rolemux install`：默认安装 shared runtime，可显式安装 Codex/Claude 非插件 Skill 或刷新 Codex App 插件。
 - `rolemux uninstall`：默认卸载 shared runtime 与非插件 Skill，Codex App 插件必须显式卸载。
-- `rolemux doctor`：检查 `codex`、`claude`、`agy`、`grok` 是否可用。
+- `rolemux doctor`：检查 `codex`、`claude`、`agy`、`grok`、`opencode` 是否可用。
 - `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`。
 - `rolemux plan`：让一个或多个 provider 生成计划。
 - `rolemux review`：让指定 provider 以 reviewer 角色审查任务。
@@ -35,7 +35,7 @@ RoleMux 分为四层：
 
 1. CLI command layer：解析命令参数并输出结果。
 2. Core layer：处理 prompt 构建、role 加载、任务存储、fallback、进程执行。
-3. Provider adapter layer：集中封装 `codex`、`claude`、`agy`、`grok` 的真实命令和参数。
+3. Provider adapter layer：集中封装 `codex`、`claude`、`agy`、`grok`、`opencode` 的真实命令和参数。
 4. Skill/role layer：给 Codex 和 Claude 提供触发说明，并给不同任务注入角色提示词。
 
 核心目录：
@@ -43,7 +43,7 @@ RoleMux 分为四层：
 ```text
 src/commands/      CLI 命令实现
 src/core/          prompt、task store、process runner、fallback 等核心逻辑
-src/providers/     codex、claude、agy、grok provider adapter
+src/providers/     codex、claude、agy、grok、opencode provider adapter
 skills/            通用 RoleMux Skill 源
 roles/             默认角色 prompt
 templates/         默认配置和 report 模板
@@ -55,7 +55,7 @@ docs/release/      发布检查清单
 
 - Node.js 20 或更高版本。
 - Windows PowerShell、macOS shell 或 Linux shell。
-- 可选安装本地 provider CLI：`codex`、`claude`、`agy`、`grok`。
+- 可选安装本地 provider CLI：`codex`、`claude`、`agy`、`grok`、`opencode`。
 
 没有安装 provider CLI 也可以先使用 `--dry-run` 验证命令、prompt 和安装目标。
 
@@ -65,6 +65,13 @@ Grok Build 使用官方包 `@xai-official/grok`，安装与登录由 Grok CLI �
 npm install -g @xai-official/grok
 grok login
 grok --version
+```
+
+OpenCode 使用官方包 `opencode-ai`。RoleMux 调用其非交互 `run` 模式，默认加 `--pure` 且不启用危险的 `--auto`；模型凭据与权限规则仍由 OpenCode 自身管理：
+
+```powershell
+npm install -g opencode-ai
+opencode --version
 ```
 
 ## 从 GitHub 安装试用
@@ -200,6 +207,12 @@ rolemux doctor --providers codex
 rolemux doctor --providers grok
 ```
 
+只检查 OpenCode：
+
+```powershell
+rolemux doctor --providers opencode
+```
+
 预览单 provider 任务：
 
 ```powershell
@@ -210,6 +223,12 @@ rolemux run --provider codex --role builder --task .\examples\basic-task.md --wo
 
 ```powershell
 rolemux run --provider grok --role reviewer --task .\examples\basic-task.md --workdir . --dry-run
+```
+
+预览 OpenCode 审查任务：
+
+```powershell
+rolemux run --provider opencode --role reviewer --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
 让 Codex 和 Claude 生成计划：
@@ -227,7 +246,7 @@ rolemux review --provider codex --role reviewer --task .\examples\basic-task.md 
 预览多 provider 讨论：
 
 ```powershell
-rolemux discuss --providers 'codex,claude,agy,grok' --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
+rolemux discuss --providers 'codex,claude,agy,grok,opencode' --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
 
 大任务拆分与分发：
@@ -343,6 +362,10 @@ command = "agy"
 [providers.grok]
 enabled = true
 command = "grok"
+
+[providers.opencode]
+enabled = true
+command = "opencode"
 ```
 
 ## Skill 用法
@@ -365,11 +388,11 @@ skills/rolemux-workflow/SKILL.md
 - 用不同角色并行分析
 - 让外部 provider 生成计划或审查
 - 保存可审计任务产物
-- 进行 Codex / Claude / Agy / Grok Build 多方讨论
+- 进行 Codex / Claude / Agy / Grok Build / OpenCode 多方讨论
 
 Skill 只负责说明何时调用 `rolemux`，provider 的底层参数仍由 `src/providers/` adapter 层统一封装。
 
-真实多 agent dispatch 时，Skill 默认应使用 `dispatch --detach`，再轮询 `agents --json` 生成对话内监控卡片；如果用户需要 TUI，另开同项目终端运行 `agents --tui`。
+真实多 agent dispatch 时，Skill 默认应使用 `dispatch --detach`，再轮询 `agents --json` 生成对话内监控卡片；如果用户需要 TUI，另开同项目终端运行 `agents --tui`。这里的 TUI 是 RoleMux 共享监控界面，不会启动 OpenCode 自身的交互式 TUI。
 
 ## Codex 插件刷新
 

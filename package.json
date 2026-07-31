@@ -1,7 +1,7 @@
 {
   "name": "rolemux",
   "version": "0.1.0",
-  "description": "Lightweight multi-CLI role workflow runner for Codex, Claude, Agy, and Grok Build.",
+  "description": "Lightweight multi-CLI role workflow runner for Codex, Claude, Agy, Grok Build, and OpenCode.",
   "type": "module",
   "bin": {
     "rolemux": "./dist/cli.js"
