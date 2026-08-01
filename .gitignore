@@ -13,6 +13,7 @@ coverage/
 .rolemux/tasks/
 .rolemux/tmp/
 .rolemux/worktrees/
+validation/eval-pack/runs/
 
 # Logs and local diagnostics
 *.log

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "historical": true,
+  "currentPackVersion": 2,
+  "note": "Historical v1 real-provider run; the v2 26-case pack has not been re-run.",
+  "pack": "RoleMux repository facts v1",
+  "packVersion": 1,
+  "caseCount": 20,
+  "gitHead": "75c1afe80a9ecedd9042d36237622228bbbc740f",
+  "providers": [
+    "codex",
+    "claude",
+    "grok"
+  ],
+  "startedAt": "2026-07-31T16:28:27.449Z",
+  "finishedAt": "2026-07-31T16:47:28.045Z",
+  "worktreeDirty": false,
+  "worktreeCleanup": "success",
+  "modes": [
+    {
+      "mode": "single",
+      "finalStatus": "success",
+      "invocationCount": 1,
+      "durationMs": 206629,
+      "invocations": [
+        { "provider": "codex", "role": "reviewer", "status": "success", "durationMs": 206629 }
+      ],
+      "score": {
+        "mode": "single",
+        "caseCount": 20,
+        "answeredCount": 20,
+        "factScore": 1,
+        "evidenceScore": 1,
+        "coverageScore": 1,
+        "totalScore": 1
+      }
+    },
+    {
+      "mode": "unstructured",
+      "finalStatus": "success",
+      "invocationCount": 4,
+      "durationMs": 521101,
+      "invocations": [
+        { "provider": "codex", "role": "reviewer", "status": "success", "durationMs": 130334 },
+        { "provider": "claude", "role": "reviewer", "status": "failed", "durationMs": 6129 },
+        { "provider": "grok", "role": "reviewer", "status": "timeout", "durationMs": 301314 },
+        { "provider": "codex", "role": "summarizer", "status": "success", "durationMs": 83324 }
+      ],
+      "score": {
+        "mode": "unstructured",
+        "caseCount": 20,
+        "answeredCount": 20,
+        "factScore": 0.9836,
+        "evidenceScore": 1,
+        "coverageScore": 1,
+        "totalScore": 0.9885
+      }
+    },
+    {
+      "mode": "structured",
+      "finalStatus": "success",
+      "invocationCount": 4,
+      "durationMs": 629661,
+      "invocations": [
+        { "provider": "codex", "role": "architect", "status": "timeout", "durationMs": 337960 },
+        { "provider": "claude", "role": "reviewer", "status": "failed", "durationMs": 4958 },
+        { "provider": "grok", "role": "reviewer", "status": "success", "durationMs": 76699 },
+        { "provider": "codex", "role": "summarizer", "status": "success", "durationMs": 210044 }
+      ],
+      "score": {
+        "mode": "structured",
+        "caseCount": 20,
+        "answeredCount": 20,
+        "factScore": 1,
+        "evidenceScore": 1,
+        "coverageScore": 1,
+        "totalScore": 1
+      }
+    }
+  ]
+}

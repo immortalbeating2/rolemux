@@ -1,0 +1,188 @@
+{
+  "version": 2,
+  "title": "RoleMux repository facts v2",
+  "cases": [
+    {
+      "id": "provider-registry",
+      "question": "List every supported provider name in registry order.",
+      "allowedPaths": ["src/providers/provider.ts"],
+      "expected": [["codex"], ["claude"], ["agy"], ["grok"], ["opencode"]],
+      "evidencePaths": ["src/providers/provider.ts"]
+    },
+    {
+      "id": "codex-command",
+      "question": "How does the Codex adapter pass its prompt and select the working directory?",
+      "allowedPaths": ["src/providers/codex.ts"],
+      "expected": [["stdin"], ["exec"], ["-c", "-C"]],
+      "evidencePaths": ["src/providers/codex.ts"]
+    },
+    {
+      "id": "claude-command",
+      "question": "Which print and output-format arguments does the Claude adapter use?",
+      "allowedPaths": ["src/providers/claude.ts"],
+      "expected": [["-p"], ["--output-format"], ["text"]],
+      "evidencePaths": ["src/providers/claude.ts"]
+    },
+    {
+      "id": "agy-command",
+      "question": "Which workdir/prompt arguments and transport does the Agy adapter use?",
+      "allowedPaths": ["src/providers/agy.ts"],
+      "expected": [["--add-dir"], ["-p"], ["pty"]],
+      "evidencePaths": ["src/providers/agy.ts"]
+    },
+    {
+      "id": "grok-safety-flags",
+      "question": "Which flags keep Grok execution single-turn and disable nested orchestration state?",
+      "allowedPaths": ["src/providers/grok.ts"],
+      "expected": [["--no-subagents"], ["--no-memory"], ["--single"]],
+      "evidencePaths": ["src/providers/grok.ts"]
+    },
+    {
+      "id": "opencode-command",
+      "question": "State the OpenCode subcommand and its purity, workdir, and output-format arguments.",
+      "allowedPaths": ["src/providers/opencode.ts"],
+      "expected": [["run"], ["--pure"], ["--dir"], ["--format"], ["default"]],
+      "evidencePaths": ["src/providers/opencode.ts"]
+    },
+    {
+      "id": "opencode-output-cleaning",
+      "question": "How does OpenCode request cleanup of terminal control sequences?",
+      "allowedPaths": ["src/providers/opencode.ts", "src/core/workflow-runner.ts"],
+      "expected": [["stripterminaloutput", "stripTerminalOutput"], ["stdout"], ["stderr"]],
+      "evidencePaths": ["src/providers/opencode.ts", "src/core/workflow-runner.ts"]
+    },
+    {
+      "id": "tui-refresh",
+      "question": "What is the default agents TUI refresh interval in milliseconds?",
+      "allowedPaths": ["src/core/agents-tui.ts"],
+      "expected": [["2000"]],
+      "evidencePaths": ["src/core/agents-tui.ts"]
+    },
+    {
+      "id": "tui-cancel",
+      "question": "What key sequence is required to request cancellation from the agents TUI?",
+      "allowedPaths": ["src/core/agents-tui.ts"],
+      "expected": [["c"], ["again", "twice", "two", "second"]],
+      "evidencePaths": ["src/core/agents-tui.ts"]
+    },
+    {
+      "id": "monitor-artifacts",
+      "question": "Name the monitor snapshot, append-only event log, readable summary, and cancel-control artifact.",
+      "allowedPaths": ["src/core/agents-monitor.ts"],
+      "expected": [["monitor.json"], ["events.jsonl"], ["summary.md"], ["cancel.json"]],
+      "evidencePaths": ["src/core/agents-monitor.ts"]
+    },
+    {
+      "id": "monitor-statuses",
+      "question": "List every per-agent monitor status.",
+      "allowedPaths": ["src/core/agents-monitor.ts"],
+      "expected": [["queued"], ["running"], ["success"], ["failed"], ["timeout"], ["canceled"]],
+      "evidencePaths": ["src/core/agents-monitor.ts"]
+    },
+    {
+      "id": "monitor-next-actions",
+      "question": "List every monitor nextRecommendedAction value.",
+      "allowedPaths": ["src/core/agents-monitor.ts"],
+      "expected": [["wait"], ["inspect"], ["merge-dry-run"], ["resume"], ["cancelled"], ["needs-user-action"]],
+      "evidencePaths": ["src/core/agents-monitor.ts"]
+    },
+    {
+      "id": "fallback-stop",
+      "question": "When does the fallback loop stop, and what happens if every provider fails?",
+      "allowedPaths": ["src/core/fallback.ts"],
+      "expected": [["first", "success"], ["failed"]],
+      "evidencePaths": ["src/core/fallback.ts"]
+    },
+    {
+      "id": "worker-quota",
+      "question": "What count is assumed when a provider quota omits ':N', and which counts are rejected?",
+      "allowedPaths": ["src/core/worker-pool.ts"],
+      "expected": [["1"], ["less than 1", "< 1", "zero", "0"]],
+      "evidencePaths": ["src/core/worker-pool.ts"]
+    },
+    {
+      "id": "manifest-defaults",
+      "question": "What default role and write policy are assigned to manifest subtasks?",
+      "allowedPaths": ["src/core/subtask-manifest.ts"],
+      "expected": [["builder"], ["readonly"]],
+      "evidencePaths": ["src/core/subtask-manifest.ts"]
+    },
+    {
+      "id": "isolated-worktree",
+      "question": "Where is an isolated worktree created and what branch prefix is used?",
+      "allowedPaths": ["src/core/git-worktree.ts"],
+      "expected": [[".rolemux/worktrees"], ["rolemux/"]],
+      "evidencePaths": ["src/core/git-worktree.ts"]
+    },
+    {
+      "id": "merge-safety",
+      "question": "Which git preflight occurs before applying patches, and how are overlapping files handled?",
+      "allowedPaths": ["src/core/merge-patches.ts"],
+      "expected": [["git apply --check", "apply --check"], ["merge_conflict", "conflict"]],
+      "evidencePaths": ["src/core/merge-patches.ts"]
+    },
+    {
+      "id": "cleanup-boundary",
+      "question": "Which managed root bounds worktree cleanup, and what error is raised for an outside path?",
+      "allowedPaths": ["src/core/worktree-cleanup.ts"],
+      "expected": [[".rolemux/worktrees"], ["worktree_cleanup_unsafe_path", "unsafe path"]],
+      "evidencePaths": ["src/core/worktree-cleanup.ts"]
+    },
+    {
+      "id": "context-pack-safety",
+      "question": "What is the default per-file byte limit, and name two sensitive basename examples that are skipped.",
+      "allowedPaths": ["src/core/context-pack.ts"],
+      "expected": [["16384", "16 * 1024", "16 kb", "16 kib"], [".env"], [".npmrc"]],
+      "evidencePaths": ["src/core/context-pack.ts"]
+    },
+    {
+      "id": "empty-output",
+      "question": "How is a provider process classified when it exits successfully but stdout is empty?",
+      "allowedPaths": ["src/core/workflow-runner.ts"],
+      "expected": [["failed"], ["no stdout", "empty stdout", "produced no stdout"]],
+      "evidencePaths": ["src/core/workflow-runner.ts"]
+    },
+    {
+      "id": "result-contract",
+      "question": "Name the result.json schema version and its finding and verification collections.",
+      "allowedPaths": ["src/core/task-result.ts"],
+      "expected": [["schemaVersion", "schema version"], ["1"], ["findings"], ["verification"]],
+      "evidencePaths": ["src/core/task-result.ts"]
+    },
+    {
+      "id": "provenance-contract",
+      "question": "Which two SHA-256 fields are recorded, and how is an unknown model reported?",
+      "allowedPaths": ["src/core/run-provenance.ts", "src/core/task-metadata.ts"],
+      "expected": [["promptSha256"], ["executionConfigSha256"], ["not-reported"]],
+      "evidencePaths": ["src/core/run-provenance.ts", "src/core/task-metadata.ts"]
+    },
+    {
+      "id": "execution-budget",
+      "question": "Which run limits stop fallback work, and which metadata fields record consumption?",
+      "allowedPaths": ["src/commands/run.ts", "src/core/fallback.ts", "src/core/task-metadata.ts"],
+      "expected": [["maxAttempts"], ["timeoutMs", "deadlineAt"], ["attemptsUsed"], ["deadlineReached"]],
+      "evidencePaths": ["src/commands/run.ts", "src/core/fallback.ts", "src/core/task-metadata.ts"]
+    },
+    {
+      "id": "structured-discussion",
+      "question": "List the four structured discussion stages in order.",
+      "allowedPaths": ["src/commands/discuss.ts"],
+      "expected": [["candidate"], ["counter"], ["verification"], ["synthesis"]],
+      "evidencePaths": ["src/commands/discuss.ts"]
+    },
+    {
+      "id": "verification-manifest",
+      "question": "What version and command fields are accepted, and is a shell used?",
+      "allowedPaths": ["src/core/verification-manifest.ts", "src/core/process-runner.ts"],
+      "expected": [["version", "version 1"], ["executable"], ["args"], ["shell: false", "without a shell", "no shell"]],
+      "evidencePaths": ["src/core/verification-manifest.ts", "src/core/process-runner.ts"]
+    },
+    {
+      "id": "capability-routing",
+      "question": "Which providers are the first two research priorities, and which controls bound selection?",
+      "allowedPaths": ["src/core/provider-router.ts"],
+      "expected": [["grok"], ["claude"], ["available"], ["exclude"], ["maxProviders"]],
+      "evidencePaths": ["src/core/provider-router.ts"]
+    }
+  ]
+}
