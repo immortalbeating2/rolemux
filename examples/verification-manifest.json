@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "commands": [
+    {
+      "name": "node-version",
+      "executable": "node",
+      "args": ["--version"]
+    }
+  ]
+}

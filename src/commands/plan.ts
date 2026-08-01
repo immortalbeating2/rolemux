@@ -7,6 +7,7 @@ export interface PlanCommandOptions {
   task: string;
   workdir?: string;
   dryRun?: boolean;
+  structuredResult?: boolean;
 }
 
 export interface PlanCommandResult {
@@ -25,7 +26,8 @@ export async function planCommand(options: PlanCommandOptions): Promise<PlanComm
       role: 'architect',
       task: options.task,
       ...(options.workdir === undefined ? {} : { workdir: options.workdir }),
-      dryRun: false
+      dryRun: false,
+      structuredResult: options.structuredResult === true
     })));
 
     return {
@@ -39,7 +41,8 @@ export async function planCommand(options: PlanCommandOptions): Promise<PlanComm
       provider,
       role: 'architect',
       task: options.task,
-      dryRun: true
+      dryRun: true,
+      structuredResult: options.structuredResult === true
     };
     const result = await runCommand(options.workdir === undefined
       ? runOptions

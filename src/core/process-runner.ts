@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { ChildProcess } from 'node:child_process';
 import { CliError } from './cli-error.js';
 
 /** Normalized process execution status. */
@@ -69,14 +70,14 @@ export async function runProcess(input: ProcessRunInput): Promise<ProcessRunResu
     let settled = false;
 
     const timeout = input.timeoutMs
-      ? setTimeout(() => {
+        ? setTimeout(() => {
           timedOut = true;
-          child.kill('SIGTERM');
+          terminateProcess(child);
         }, input.timeoutMs)
       : undefined;
     const abortHandler = (): void => {
       canceled = true;
-      child.kill('SIGTERM');
+      terminateProcess(child);
     };
     if (input.signal?.aborted === true) {
       abortHandler();
@@ -179,4 +180,20 @@ export async function runProcess(input: ProcessRunInput): Promise<ProcessRunResu
       });
     });
   });
+}
+
+function terminateProcess(child: ChildProcess): void {
+  if (process.platform !== 'win32' || child.pid === undefined) {
+    child.kill('SIGTERM');
+    return;
+  }
+
+  // Windows shell shims can outlive their parent handle. taskkill /T keeps
+  // timeout and cancel budgets real by terminating the provider process tree.
+  const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
+    shell: false,
+    stdio: 'ignore',
+    windowsHide: true
+  });
+  killer.once('error', () => child.kill('SIGTERM'));
 }

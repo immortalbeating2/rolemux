@@ -14,10 +14,35 @@ export interface TaskArtifacts {
   readonly summary?: string | undefined;
   readonly diff?: string | undefined;
   readonly worktree?: string | undefined;
+  readonly result?: string | undefined;
+}
+
+/** Reproducibility facts recorded without exposing provider credentials. */
+export interface RunProvenance {
+  readonly gitHead: string | null;
+  readonly promptSha256: string;
+  readonly executionConfigSha256: string;
+  readonly providerExecutable: string;
+  readonly providerCliVersion: string | null;
+  readonly model: {
+    readonly requested: string | null;
+    readonly resolved: string | null;
+    readonly source: 'not-reported' | 'provider-output' | 'user-supplied';
+  };
+  readonly humanApproval: 'not-recorded' | 'approved' | 'not-required';
+}
+
+/** Configured and consumed execution limits for a provider run. */
+export interface ExecutionBudget {
+  readonly maxAttempts: number;
+  readonly timeoutMs: number | null;
+  readonly attemptsUsed: number;
+  readonly deadlineReached: boolean;
 }
 
 /** Persisted metadata schema for .rolemux/tasks/{task-id}/metadata.json. */
 export interface TaskMetadata {
+  readonly schemaVersion?: 1 | undefined;
   readonly taskId: string;
   readonly command: string;
   readonly provider?: string | undefined;
@@ -29,6 +54,8 @@ export interface TaskMetadata {
   readonly exitCode: number | null;
   readonly status: TaskRunStatus;
   readonly artifacts: TaskArtifacts;
+  readonly provenance?: RunProvenance | undefined;
+  readonly budget?: ExecutionBudget | undefined;
   readonly attempts?: readonly unknown[] | undefined;
   readonly dispatch?: {
     readonly manifestPath: string;
@@ -42,6 +69,7 @@ export interface TaskMetadata {
 
 /** Runtime validator for persisted task artifact metadata. */
 export const taskMetadataSchema = z.object({
+  schemaVersion: z.literal(1).optional(),
   taskId: z.string().min(1),
   command: z.string().min(1),
   provider: z.string().optional(),
@@ -61,8 +89,28 @@ export const taskMetadataSchema = z.object({
     manifest: z.string().optional(),
     summary: z.string().optional(),
     diff: z.string().optional(),
-    worktree: z.string().optional()
+    worktree: z.string().optional(),
+    result: z.string().optional()
   }),
+  provenance: z.object({
+    gitHead: z.string().nullable(),
+    promptSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    executionConfigSha256: z.string().regex(/^[a-f0-9]{64}$/),
+    providerExecutable: z.string().min(1),
+    providerCliVersion: z.string().nullable(),
+    model: z.object({
+      requested: z.string().nullable(),
+      resolved: z.string().nullable(),
+      source: z.enum(['not-reported', 'provider-output', 'user-supplied'])
+    }),
+    humanApproval: z.enum(['not-recorded', 'approved', 'not-required'])
+  }).optional(),
+  budget: z.object({
+    maxAttempts: z.number().int().positive(),
+    timeoutMs: z.number().int().positive().nullable(),
+    attemptsUsed: z.number().int().nonnegative(),
+    deadlineReached: z.boolean()
+  }).optional(),
   attempts: z.array(z.unknown()).optional(),
   dispatch: z.object({
     manifestPath: z.string().min(1),

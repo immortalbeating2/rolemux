@@ -7,7 +7,8 @@ export const grokAdapter: ProviderAdapter = {
   executable: process.platform === 'win32' ? 'grok.exe' : 'grok',
   capabilities: {
     supportsPromptArgument: true,
-    supportsWorkdir: true
+    supportsWorkdir: true,
+    taskKinds: ['architecture', 'research', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
     // RoleMux owns orchestration and task isolation, so nested agents and

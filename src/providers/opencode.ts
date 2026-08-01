@@ -9,7 +9,8 @@ export const opencodeAdapter: ProviderAdapter = {
   executable: resolveOpenCodeExecutable(),
   capabilities: {
     supportsPromptArgument: true,
-    supportsWorkdir: true
+    supportsWorkdir: true,
+    taskKinds: ['implementation', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
     // OpenCode 的 Windows npm shim 会重解释多行和 `%...%` prompt；直接启动

@@ -11,6 +11,7 @@ import { buildContextPack } from '../core/context-pack.js';
 import { appendMonitorEvent, ensureMonitorStore, isCancelRequested, updateMonitorAgent } from '../core/agents-monitor.js';
 import { collectWorktreeDiff, createIsolatedWorktree } from '../core/git-worktree.js';
 import { runWorkflow } from '../core/workflow-runner.js';
+import { collectRunProvenance } from '../core/run-provenance.js';
 import type { ProviderName } from '../providers/index.js';
 import type { DispatchRunArtifactInput } from '../core/dispatch-artifacts.js';
 import type { AgentsMonitorStore, MonitorAgentSeed } from '../core/agents-monitor.js';
@@ -180,6 +181,14 @@ async function runDispatchAssignment(options: {
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     dryRun: false
   });
+  const provenance = await collectRunProvenance({
+    provider: options.assignment.provider,
+    role: options.assignment.role,
+    workdir: contextSourceWorkdir,
+    prompt: workflow.prompt,
+    command: workflow.command,
+    structuredResult: false
+  });
   const diff = isolatedWorktree === undefined ? undefined : await collectWorktreeDiff(isolatedWorktree.worktreePath);
 
   return {
@@ -193,11 +202,12 @@ async function runDispatchAssignment(options: {
     prompt: workflow.prompt,
     output: workflow.output,
     stderr: workflow.stderr,
-  status: workflow.status as TaskRunStatus,
+    status: workflow.status as TaskRunStatus,
     exitCode: workflow.exitCode,
     startedAt: workflow.startedAt,
     finishedAt: workflow.finishedAt,
     durationMs: workflow.durationMs,
+    provenance,
     ...(contextPack === undefined
       ? {}
       : {

@@ -7,7 +7,8 @@ export const agyAdapter: ProviderAdapter = {
   executable: process.platform === 'win32' ? 'agy.exe' : 'agy',
   capabilities: {
     supportsPromptArgument: true,
-    supportsWorkdir: true
+    supportsWorkdir: true,
+    taskKinds: ['implementation', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
     const printTimeout = parseAgyDuration(process.env.ROLEMUX_AGY_PRINT_TIMEOUT);

@@ -7,7 +7,8 @@ export const codexAdapter: ProviderAdapter = {
   executable: process.platform === 'win32' ? 'cmd.exe' : 'codex',
   capabilities: {
     supportsPromptArgument: false,
-    supportsWorkdir: true
+    supportsWorkdir: true,
+    taskKinds: ['architecture', 'research', 'implementation', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
     const sandboxArgs = buildSandboxArgs(process.env.ROLEMUX_CODEX_SANDBOX);

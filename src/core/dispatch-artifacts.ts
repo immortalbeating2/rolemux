@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { CliError } from './cli-error.js';
 import type { SubtaskManifest, SubtaskWritePolicy } from './subtask-manifest.js';
 import type { ContextPackSkippedPath } from './context-pack.js';
-import type { TaskMetadata, TaskRunStatus } from './task-metadata.js';
+import type { RunProvenance, TaskMetadata, TaskRunStatus } from './task-metadata.js';
 import type { ProviderName } from '../providers/index.js';
 
 export interface DispatchArtifactAssignment {
@@ -31,6 +31,7 @@ export interface DispatchRunArtifactInput {
   readonly startedAt?: string | undefined;
   readonly finishedAt?: string | undefined;
   readonly durationMs?: number | undefined;
+  readonly provenance?: RunProvenance | undefined;
   readonly diff?: string | undefined;
   readonly worktreePath?: string | undefined;
   readonly contextPack?: {
@@ -146,6 +147,7 @@ function buildDispatchMetadata(options: {
         : 'success';
 
   return {
+    schemaVersion: 1,
     taskId: options.parentTaskId,
     command: 'dispatch',
     workdir: options.workdir,
@@ -182,6 +184,7 @@ function buildSubtaskMetadata(options: {
   durationMs: number;
 }): TaskMetadata {
   return {
+    schemaVersion: 1,
     taskId: `${options.parentTaskId}/${options.run.subtaskId}`,
     command: 'dispatch-subtask',
     provider: options.run.provider,
@@ -192,6 +195,7 @@ function buildSubtaskMetadata(options: {
     durationMs: options.durationMs,
     exitCode: options.run.exitCode,
     status: options.run.status,
+    ...(options.run.provenance === undefined ? {} : { provenance: options.run.provenance }),
     artifacts: {
       task: 'task.md',
       prompt: 'prompt.md',

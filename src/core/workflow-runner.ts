@@ -12,6 +12,7 @@ export interface WorkflowRunInput {
   readonly task: string;
   readonly workdir: string;
   readonly context?: readonly string[] | undefined;
+  readonly outputInstructions?: string | undefined;
   readonly dryRun?: boolean;
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal | undefined;
@@ -39,7 +40,8 @@ export async function runWorkflow(input: WorkflowRunInput): Promise<WorkflowRunR
     role: input.role,
     task: input.task,
     ...(input.context === undefined ? {} : { context: input.context }),
-    ...(rolePrompt === undefined ? {} : { rolePrompt })
+    ...(rolePrompt === undefined ? {} : { rolePrompt }),
+    ...(input.outputInstructions === undefined ? {} : { outputInstructions: input.outputInstructions })
   });
   const adapter = getProviderAdapter(input.provider);
   const command = adapter.buildCommand({ prompt, workdir: input.workdir, role: input.role });

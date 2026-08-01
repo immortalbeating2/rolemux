@@ -4,6 +4,9 @@ export const providerNames = ['codex', 'claude', 'agy', 'grok', 'opencode'] as c
 /** Stable provider name accepted by RoleMux commands and manifests. */
 export type ProviderName = typeof providerNames[number];
 
+/** Fixed task categories supported by the lightweight capability router. */
+export type TaskKind = 'architecture' | 'research' | 'implementation' | 'ui-review' | 'failure-review';
+
 /** Checks an external string against the shared provider registry names. */
 export function isProviderName(value: string): value is ProviderName {
   return providerNames.some(provider => provider === value);
@@ -32,6 +35,7 @@ export interface ProviderCommand {
 export interface ProviderCapabilities {
   readonly supportsPromptArgument: boolean;
   readonly supportsWorkdir: boolean;
+  readonly taskKinds: readonly TaskKind[];
 }
 
 /** Adapter boundary for provider-specific CLI argument construction. */

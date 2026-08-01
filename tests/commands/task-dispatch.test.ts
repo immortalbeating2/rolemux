@@ -188,12 +188,27 @@ describe('task dispatch commands', () => {
       expect(result.artifactDir).toContain('.rolemux');
 
       const output = await readFile(join(result.artifactDir ?? '', 'subtasks', 'one', 'output.md'), 'utf8');
+      const metadata = JSON.parse(await readFile(
+        join(result.artifactDir ?? '', 'subtasks', 'one', 'metadata.json'),
+        'utf8'
+      )) as {
+        schemaVersion?: number;
+        provenance?: {
+          providerExecutable?: string;
+          promptSha256?: string;
+          model?: { source?: string };
+        };
+      };
       const monitor = JSON.parse(await readFile(join(result.artifactDir ?? '', 'monitor.json'), 'utf8')) as {
         status?: string;
         agents?: Array<{ id: string; status: string; lastEvent: string }>;
       };
       const events = (await readFile(join(result.artifactDir ?? '', 'events.jsonl'), 'utf8')).trim().split(/\r?\n/);
       expect(output).toContain('MOCK_PROVIDER_OUTPUT');
+      expect(metadata.schemaVersion).toBe(1);
+      expect(metadata.provenance?.providerExecutable).toBe(process.execPath);
+      expect(metadata.provenance?.promptSha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(metadata.provenance?.model?.source).toBe('not-reported');
       expect(monitor.status).toBe('success');
       expect(monitor.agents?.[0]).toMatchObject({ id: 'one', status: 'success', lastEvent: 'output.md written' });
       expect(events.some(line => line.includes('agent-running'))).toBe(true);

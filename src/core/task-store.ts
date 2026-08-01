@@ -4,6 +4,8 @@ import { randomBytes } from 'node:crypto';
 import { CliError } from './cli-error.js';
 import { TaskArtifacts, TaskMetadata, TaskRunStatus, parseTaskMetadata } from './task-metadata.js';
 import { renderHtmlReport } from '../report/html-report.js';
+import type { TaskResult } from './task-result.js';
+import type { ExecutionBudget, RunProvenance } from './task-metadata.js';
 
 /** Input used to create a persisted task run. */
 export interface CreateRunInput {
@@ -20,6 +22,9 @@ export interface CreateRunInput {
   readonly startedAt?: string | undefined;
   readonly finishedAt?: string | undefined;
   readonly durationMs?: number | undefined;
+  readonly result?: TaskResult | undefined;
+  readonly provenance?: RunProvenance | undefined;
+  readonly budget?: ExecutionBudget | undefined;
 }
 
 /** Persisted task run record returned by the store. */
@@ -58,7 +63,8 @@ export function createTaskStore(options: { workdir: string; taskDir?: string }):
         prompt: 'prompt.md',
         output: 'output.md',
         stderr: 'stderr.log',
-        report: reportArtifact
+        report: reportArtifact,
+        ...(input.result === undefined ? {} : { result: 'result.json' })
       };
 
       const artifactFinishedAt = new Date();
@@ -77,6 +83,9 @@ export function createTaskStore(options: { workdir: string; taskDir?: string }):
       await writeFile(join(taskDir, artifacts.prompt), input.prompt, 'utf8');
       await writeFile(join(taskDir, artifacts.output), input.output, 'utf8');
       await writeFile(join(taskDir, artifacts.stderr), input.stderr, 'utf8');
+      if (input.result !== undefined) {
+        await writeFile(join(taskDir, 'result.json'), `${JSON.stringify(input.result, null, 2)}\n`, 'utf8');
+      }
       const metadataJson = `${JSON.stringify(metadata, null, 2)}\n`;
       await writeFile(join(taskDir, 'metadata.json'), metadataJson, 'utf8');
       await writeFile(join(taskDir, reportArtifact), renderHtmlReport({
@@ -173,6 +182,7 @@ function buildMetadata(options: {
   artifacts: TaskArtifacts;
 }): TaskMetadata {
   const base: TaskMetadata = {
+    schemaVersion: 1,
     taskId: options.taskId,
     command: options.input.command,
     workdir: options.workdir,
@@ -188,7 +198,9 @@ function buildMetadata(options: {
     ...base,
     ...(options.input.provider !== undefined ? { provider: options.input.provider } : {}),
     ...(options.input.role !== undefined ? { role: options.input.role } : {}),
-    ...(options.input.attempts !== undefined ? { attempts: options.input.attempts } : {})
+    ...(options.input.attempts !== undefined ? { attempts: options.input.attempts } : {}),
+    ...(options.input.provenance !== undefined ? { provenance: options.input.provenance } : {}),
+    ...(options.input.budget !== undefined ? { budget: options.input.budget } : {})
   });
 }
 

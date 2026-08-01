@@ -14,6 +14,7 @@ import { manifestValidateCommand } from './commands/manifest.js';
 import { mergeCommand } from './commands/merge.js';
 import { planCommand } from './commands/plan.js';
 import { reviewCommand } from './commands/review.js';
+import { routeCommand } from './commands/route.js';
 import { runCommand } from './commands/run.js';
 import { splitCommand } from './commands/split.js';
 import { statusCommand } from './commands/status.js';
@@ -29,7 +30,7 @@ export function createCli(): Command {
 
   cli
     .name('rolemux')
-    .description('Lightweight multi-CLI role workflow runner for Codex, Claude, and Agy.')
+    .description('Lightweight multi-CLI role workflow runner for Codex, Claude, Agy, Grok Build, and OpenCode.')
     .version('0.1.0');
 
   cli.command('install')
@@ -231,6 +232,9 @@ export function createCli(): Command {
     .requiredOption('--role <role>', 'role prompt name')
     .requiredOption('--task <task>', 'task file path')
     .option('--fallback-providers <providers>', 'comma-separated fallback provider list')
+    .option('--result-json', 'require and persist the structured result.json contract')
+    .option('--max-attempts <count>', 'maximum provider attempts including the primary', parsePositiveInteger)
+    .option('--timeout-ms <milliseconds>', 'total provider deadline in milliseconds', parsePositiveInteger)
     .option('--workdir <workdir>', 'working directory', process.cwd())
     .option('--dry-run', 'preview provider command without execution')
     .action(async options => {
@@ -240,9 +244,27 @@ export function createCli(): Command {
         task: options.task,
         workdir: options.workdir,
         dryRun: options.dryRun === true,
-        fallbackProviders: parseCsv(options.fallbackProviders) ?? []
+        fallbackProviders: parseCsv(options.fallbackProviders) ?? [],
+        structuredResult: options.resultJson === true,
+        maxAttempts: options.maxAttempts,
+        timeoutMs: options.timeoutMs
       });
       printJson(result);
+    });
+
+  cli.command('route')
+    .description('select providers by fixed task capabilities and availability')
+    .requiredOption('--task-kind <kind>', 'architecture, research, implementation, ui-review, or failure-review')
+    .option('--available <providers>', 'comma-separated available provider list; otherwise use doctor')
+    .option('--exclude <providers>', 'comma-separated providers to exclude')
+    .option('--max-providers <count>', 'maximum selected providers', parsePositiveInteger, 2)
+    .action(async options => {
+      printJson(await routeCommand({
+        taskKind: parseTaskKind(options.taskKind),
+        available: parseCsv(options.available),
+        exclude: parseCsv(options.exclude),
+        maxProviders: options.maxProviders
+      }));
     });
 
   cli.command('status')
@@ -266,13 +288,15 @@ export function createCli(): Command {
     .requiredOption('--providers <providers>', 'comma-separated provider list')
     .requiredOption('--task <task>', 'task file path')
     .option('--workdir <workdir>', 'working directory', process.cwd())
+    .option('--result-json', 'require and persist the structured result.json contract')
     .option('--dry-run', 'preview workflow without execution')
     .action(async options => {
       printJson(await planCommand({
         providers: parseRequiredCsv(options.providers),
         task: options.task,
         workdir: options.workdir,
-        dryRun: options.dryRun === true
+        dryRun: options.dryRun === true,
+        structuredResult: options.resultJson === true
       }));
     });
 
@@ -282,6 +306,7 @@ export function createCli(): Command {
     .option('--role <role>', 'role prompt name', 'reviewer')
     .requiredOption('--task <task>', 'task file path')
     .option('--workdir <workdir>', 'working directory', process.cwd())
+    .option('--result-json', 'require and persist the structured result.json contract')
     .option('--dry-run', 'preview workflow without execution')
     .action(async options => {
       printJson(await reviewCommand({
@@ -289,25 +314,44 @@ export function createCli(): Command {
         role: options.role,
         task: options.task,
         workdir: options.workdir,
-        dryRun: options.dryRun === true
+        dryRun: options.dryRun === true,
+        structuredResult: options.resultJson === true
       }));
     });
 
   cli.command('discuss')
     .description('preview a multi-provider discussion workflow')
-    .requiredOption('--providers <providers>', 'comma-separated provider list')
+    .option('--providers <providers>', 'comma-separated provider list; overrides capability routing')
     .requiredOption('--task <task>', 'task file path')
     .option('--workdir <workdir>', 'working directory', process.cwd())
-    .option('--mode <mode>', 'parallel or serial', 'parallel')
+    .option('--mode <mode>', 'parallel, serial, or structured', 'parallel')
+    .option('--counter-reviewer <provider>', 'provider used for structured counter-review')
+    .option('--summarizer <provider>', 'provider used for structured synthesis')
+    .option('--verification-manifest <path>', 'version 1 executable-and-args verification manifest')
+    .option('--task-kind <kind>', 'route kind when providers are omitted')
+    .option('--available <providers>', 'comma-separated available providers for deterministic routing')
+    .option('--exclude <providers>', 'comma-separated providers excluded from routing')
+    .option('--max-providers <count>', 'maximum routed candidate providers', parsePositiveInteger, 2)
+    .option('--max-attempts <count>', 'maximum fallback attempts per stage', parsePositiveInteger)
+    .option('--timeout-ms <milliseconds>', 'timeout per structured stage or verification command', parsePositiveInteger)
     .option('--dry-run', 'preview workflow without execution')
     .action(async options => {
       const mode = parseDiscussMode(options.mode);
       printJson(await discussCommand({
-        providers: parseRequiredCsv(options.providers),
+        providers: parseCsv(options.providers),
         task: options.task,
         workdir: options.workdir,
         mode,
-        dryRun: options.dryRun === true
+        dryRun: options.dryRun === true,
+        counterReviewer: options.counterReviewer,
+        summarizer: options.summarizer,
+        verificationManifest: options.verificationManifest,
+        taskKind: options.taskKind === undefined ? undefined : parseTaskKind(options.taskKind),
+        availableProviders: parseCsv(options.available),
+        excludeProviders: parseCsv(options.exclude),
+        maxProviders: options.maxProviders,
+        maxAttempts: options.maxAttempts,
+        timeoutMs: options.timeoutMs
       }));
     });
 
@@ -359,11 +403,27 @@ function parseInteger(value: string): number {
   return Number.parseInt(value, 10);
 }
 
-function parseDiscussMode(value: string): 'parallel' | 'serial' {
-  if (value === 'parallel' || value === 'serial') {
+function parsePositiveInteger(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`Expected a positive integer, received: ${value}`);
+  }
+  return parsed;
+}
+
+function parseDiscussMode(value: string): 'parallel' | 'serial' | 'structured' {
+  if (value === 'parallel' || value === 'serial' || value === 'structured') {
     return value;
   }
   throw new Error(`Invalid discuss mode: ${value}`);
+}
+
+function parseTaskKind(value: string): 'architecture' | 'research' | 'implementation' | 'ui-review' | 'failure-review' {
+  if (value === 'architecture' || value === 'research' || value === 'implementation'
+    || value === 'ui-review' || value === 'failure-review') {
+    return value;
+  }
+  throw new Error(`Invalid task kind: ${value}`);
 }
 
 function printJson(value: unknown): void {

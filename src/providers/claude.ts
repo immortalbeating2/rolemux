@@ -7,7 +7,8 @@ export const claudeAdapter: ProviderAdapter = {
   executable: 'claude',
   capabilities: {
     supportsPromptArgument: true,
-    supportsWorkdir: true
+    supportsWorkdir: true,
+    taskKinds: ['architecture', 'research', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
     const command = applyProviderCommandOverride('claude', this.executable, ['-p', '--output-format', 'text', input.prompt]);

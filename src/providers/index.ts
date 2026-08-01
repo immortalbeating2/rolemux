@@ -31,5 +31,5 @@ export function listProviderAdapters(): readonly ProviderAdapter[] {
   return Object.values(providerAdapters);
 }
 
-export type { ProviderAdapter, ProviderCommand, ProviderCommandInput, ProviderName } from './provider.js';
+export type { ProviderAdapter, ProviderCommand, ProviderCommandInput, ProviderName, TaskKind } from './provider.js';
 export { isProviderName, providerNames } from './provider.js';

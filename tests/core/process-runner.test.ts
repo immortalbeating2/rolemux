@@ -1,6 +1,6 @@
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 import { runProcess } from '../../src/core/process-runner.js';
 
@@ -73,4 +73,36 @@ describe('process runner', () => {
     expect(result.error?.code).toBe('PROCESS_FAILED');
     expect(result.stderr).toContain('spawn');
   });
+
+  test.skipIf(process.platform !== 'win32')('kills the full Windows process tree on timeout', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'rolemux-process-tree-'));
+    const pidFile = join(dir, 'child.pid');
+    let childPid: number | undefined;
+    try {
+      const result = await runProcess({
+        executable: 'cmd.exe',
+        args: ['/d', '/s', '/c', 'node', resolve('tests/fixtures/spawn-child-process.mjs'), pidFile],
+        timeoutMs: 200
+      });
+      childPid = Number(await readFile(pidFile, 'utf8'));
+      await new Promise(resolveWait => setTimeout(resolveWait, 150));
+
+      expect(result.status).toBe('timeout');
+      expect(result.durationMs).toBeLessThan(2_000);
+      expect(isProcessAlive(childPid)).toBe(false);
+    } finally {
+      if (childPid !== undefined && isProcessAlive(childPid)) {
+        process.kill(childPid);
+      }
+    }
+  });
 });
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -8,6 +8,7 @@ export interface ReviewCommandOptions {
   task: string;
   workdir?: string;
   dryRun?: boolean;
+  structuredResult?: boolean;
 }
 
 export interface ReviewCommandResult {
@@ -25,7 +26,8 @@ export async function reviewCommand(options: ReviewCommandOptions): Promise<Revi
     provider: options.provider,
     role,
     task: options.task,
-    dryRun: options.dryRun === true
+    dryRun: options.dryRun === true,
+    structuredResult: options.structuredResult === true
   };
   const result = await runCommand(options.workdir === undefined
     ? runOptions
