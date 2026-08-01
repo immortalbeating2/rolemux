@@ -1,9 +1,19 @@
 # RoleMux 当前状态
 
-更新时间：2026-07-31
-当前阶段：RoleMux MVP 已按 M0-M6 完成首轮实现；OpenCode CLI 已作为第五个 provider `opencode` 接入 adapter、doctor、run/fallback、worker pool、manifest、Skill 与配置文档，并完成真实只读、isolated write、timeout、fallback、cancel 和 Windows PTY TUI 认证；官方 Grok Build 仍保持第四个 provider 的完整认证基线；大任务分发 Phase 8 worker 并发与 merge 安全修正已实现；RoleMux 已生成并安装为 Codex Windows App 可用的个人插件 `rolemux@personal`；install/uninstall 目标选择契约保持为默认只处理 shared runtime，宿主 Skill 与 Codex App 插件必须显式指定
+更新时间：2026-08-01
+当前阶段：RoleMux MVP 已按 M0-M6 完成；六项轻量增强已实现：Eval Pack v2、统一 `result.json`、结构化证据工作流、能力路由、预算/提前停止、可复现 metadata；未引入 DAG、数据库、Dashboard、ML router 或新依赖
 
 ## 当前真实状态
+
+- 2026-08-01 新增 `run --result-json --max-attempts --timeout-ms`、`route`、`discuss --mode structured`；旧 CLI 默认路径、`output.md` 和旧 metadata 解析保持兼容。
+- structured workflow 固定为独立候选并行 → 匿名 counter-review → `executable + args[]` 验证 → 单一 synthesis；counter 失败立即停止，真实 verification 覆盖模型自报并写入最终 `result.json`。
+- 新运行 metadata 记录 Git HEAD、prompt/config SHA-256、provider executable/version、model 报告状态和显式预算消耗；dispatch 子任务也记录 provenance。
+- provider adapter 声明五类 task kind capability；`route` 依据固定优先级、doctor/显式 availability、exclude 与 maxProviders 选择，显式 providers 始终覆盖路由。
+- Eval Pack 已升级为 v2/26 案例/10 次调用，新增六项证据工作流事实；旧 v1 pack 仍可解析。
+- 真实 smoke：Grok candidate timeout；OpenCode candidate success/counter timeout；Codex candidate success/counter timeout。未取得真实 provider 完整 synthesis success，已如实保存 `validation/evidence-workflows/real-smoke-summary.json`；现场推动修复 counter 失败后继续执行和 Windows shell 子进程树超时两个问题。
+- 最终质量门：33 个 test files / 141 项 unit tests、3 项 CLI E2E、typecheck、build、pack dry-run、CLI smoke、`git diff --check` 全部通过；runtime `npm audit --omit=dev --audit-level=high` 为 0 vulnerabilities。
+- 2026-08-01 Eval Pack 当前为 v2/26 案例：复用现有 adapter、role prompt、workflow runner 和临时 detached worktree，执行 1+4+5 共 10 次调用；原始 runs 默认忽略，v1 首次真实结果保存在 `validation/eval-pack/`，v2 尚未重跑完整 10-call provider 对比。
+- 首次真实 Eval Pack 基于 HEAD `75c1afe`：单模型 `100%`、无结构多 CLI `98.85%`、结构化 RoleMux `100%`；三模式最终输出均成功，但 Claude 两次未登录失败、Grok 在无结构模式超时、Codex architect 在结构化模式超时。该结果表明本 pack 中结构化模式与单模型正确率打平，主要验证了失败可见性、审计产物和部分候选失败下的汇总韧性，而非普遍质量提升。
 
 - 已有产品开发文档：`spec/rolemux-development-spec.md`。
 - 已有 UI 概念图：`spec/assets/rolemux-ui-concept.png`。

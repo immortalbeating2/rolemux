@@ -150,6 +150,9 @@ rolemux doctor
 # 指定 provider + role 执行任务
 rolemux run --provider codex --role builder --task task.md --workdir .
 
+# 结构化输出和整个 fallback 链预算
+rolemux run --provider codex --fallback-providers 'grok,opencode' --role reviewer --task task.md --result-json --max-attempts 2 --timeout-ms 120000
+
 # 生成方案
 rolemux plan --providers 'claude,codex' --task task.md
 
@@ -158,6 +161,10 @@ rolemux review --provider codex --role reviewer --workdir .
 
 # 并行讨论
 rolemux discuss --providers 'claude,codex,agy' --task task.md --mode parallel
+
+# 固定能力路由与结构化证据工作流
+rolemux route --task-kind failure-review --max-providers 2
+rolemux discuss --task task.md --mode structured --task-kind failure-review --verification-manifest verification.json
 
 # 规范化子任务 manifest
 rolemux split --tasks-dir .\tasks --out .\rolemux-tasks.json --dry-run
@@ -444,6 +451,7 @@ agy:
 
 ```json
 {
+  "schemaVersion": 1,
   "taskId": "2026-05-24-001",
   "command": "run",
   "provider": "codex",
@@ -457,12 +465,38 @@ agy:
   "artifacts": {
     "prompt": "prompt.md",
     "output": "output.md",
-    "stderr": "stderr.log"
+    "stderr": "stderr.log",
+    "result": "result.json"
+  },
+  "provenance": {
+    "gitHead": "...",
+    "promptSha256": "...",
+    "executionConfigSha256": "...",
+    "providerExecutable": "codex",
+    "providerCliVersion": null,
+    "model": { "requested": null, "resolved": null, "source": "not-reported" },
+    "humanApproval": "not-recorded"
+  },
+  "budget": {
+    "maxAttempts": 2,
+    "timeoutMs": 120000,
+    "attemptsUsed": 1,
+    "deadlineReached": false
   }
 }
 ```
 
-### 12.2 `config.toml`
+旧 metadata 不要求这些新增字段，继续按向后兼容 schema 读取。`result.json` 仅在显式 `--result-json` 或 structured synthesis 时生成；其 `verification[]` 由 RoleMux 实际执行结果覆盖模型自报。
+
+### 12.2 `result.json`
+
+- 固定 `schemaVersion: 1`。
+- 保存 `summary`、`findings[]`、`risks[]`、`recommendedActions[]`、`verification[]`。
+- structured discussion 顺序固定为独立候选、匿名 counter-review、argv 验证、单一 synthesis。
+- verification manifest 仅接受 `version: 1` 与 `name/executable/args[]`，禁止 shell command string。
+- 能力路由只使用 adapter task kinds 和固定优先级；显式 providers 始终优先，不构成模型质量排名。
+
+### 12.3 `config.toml`
 
 ```toml
 default_provider = "codex"
@@ -582,6 +616,8 @@ command = "opencode"
 - Codex 宿主中的 RoleMux Skill 调用 `rolemux plan`。
 - Claude 宿主中的 RoleMux Skill 调用 `rolemux review`。
 - provider 失败后 fallback 可用。
+- `run --max-attempts` 与总 `--timeout-ms` 不会启动超预算 fallback，Windows timeout/cancel 会终止完整 provider process tree。
+- structured discussion 的候选隔离、counter 失败提前停止、argv 验证、最终 `result.json` 与路由结果均有 mock-process E2E。
 
 ### 15.4 发布测试
 
@@ -591,6 +627,13 @@ command = "opencode"
 - `npm run verify:release` 可执行 typecheck、unit test、E2E、pack dry-run 和 whitespace check。
 - `npx rolemux doctor` 可用。
 - README 示例命令可复制执行。
+
+### 15.5 实验性 Eval Pack
+
+- `npm run eval:pack` 仅作为开发期实验入口，不增加公开 `rolemux eval` 命令。
+- 使用版本化 26 案例事实包，对比单模型、相同提示多 CLI 和 RoleMux 角色分工；structured 模式含独立候选、匿名 counter-review 和最终 synthesis，共 10 次调用。
+- 真实 provider 必须在临时 detached worktree 中只读运行，并保留逐调用状态与输出产物。
+- 评分使用预先固定的事实词、证据路径和覆盖率，不使用 LLM judge；结果只适用于当前 pack。
 
 ## 16. 风险与约束
 

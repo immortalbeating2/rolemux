@@ -151,6 +151,19 @@
 - 完整 release 门禁通过：109 项单测、3 项 E2E、build/pack、runtime audit 0 漏洞和 whitespace 检查。
 - 刷新 Codex 插件源/cache、Claude junction 目标和 `.agents-skills` 副本，6 份 Skill SHA-256 完全一致；全局 RoleMux CLI 已识别 `opencode`。
 
+## 2026-08-01
+
+- 新增最小 RoleMux Eval Pack：20 个版本化仓库事实案例、稳定 JSON 输出契约、确定性 scorer、三模式 runner 和 Markdown/JSON 报告。
+- 复用现有 provider adapter、role prompt、workflow runner 与临时 detached git worktree；未新增依赖或公开 `rolemux eval` 命令。
+- 完成 Codex、Claude、Grok 的 9 次真实调用：单模型 `100%`、无结构多 CLI `98.85%`、结构化 RoleMux `100%`。
+- 逐调用核验发现 Claude 两次未登录失败、无结构 Grok 超时、结构化 Codex architect 超时；两种多 CLI 模式的 Codex summarizer 均成功输出完整结果。
+- 实验结论限定为当前事实 pack：结构化模式与单模型正确率打平，但增加了角色分工、失败可见性、产物审计和部分 provider 失败下的汇总韧性；不构成普遍模型排名。
+- 完成六项增强的轻量实现：统一 `result.json`/provenance、fallback 总预算、structured discussion、argv verification manifest、固定能力路由和 Eval Pack v2。
+- `run` 增加 `--result-json`、`--max-attempts`、`--timeout-ms`；新增 `route`；`discuss` 增加 `structured`、路由、counter/summarizer 和 verification manifest 参数。
+- TDD 现场修复两个真实控制流问题：counter timeout 后错误继续执行，以及 Windows `cmd.exe` timeout 只杀父 shell 未终止 provider process tree。
+- 受控真实 smoke 未取得完整 synthesis success：Grok 首段 timeout，OpenCode/Codex 均 candidate success 后 counter timeout；状态和 task IDs 已固化，不冒充完整成功。
+- 最终 release gate 通过：141 项 unit、3 项 E2E、build/pack、CLI route/result/structured dry-run smoke、runtime audit 0 vulnerabilities。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。

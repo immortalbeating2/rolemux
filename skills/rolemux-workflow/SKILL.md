@@ -35,9 +35,12 @@ Use these command shapes. Let RoleMux and its provider adapters decide provider-
 ```bash
 rolemux doctor
 rolemux run --provider codex --role builder --task ./examples/basic-task.md --workdir . --dry-run
+rolemux run --provider codex --fallback-providers grok,opencode --role reviewer --task ./examples/basic-task.md --result-json --max-attempts 2 --timeout-ms 120000
 rolemux plan --providers claude,codex --task ./examples/basic-task.md --workdir . --dry-run
 rolemux review --provider codex --role reviewer --task ./examples/basic-task.md --workdir . --dry-run
 rolemux discuss --providers claude,codex,agy,grok,opencode --task ./examples/basic-task.md --workdir . --mode parallel --dry-run
+rolemux route --task-kind failure-review --max-providers 2
+rolemux discuss --task ./examples/basic-task.md --workdir . --mode structured --task-kind failure-review --verification-manifest ./examples/verification-manifest.json --dry-run
 rolemux dispatch --manifest ./rolemux-tasks.json --providers 'codex:1,claude:1,agy:1,grok:1,opencode:1' --workdir . --detach
 rolemux agents --parent-task <parent-task-id> --json
 rolemux cancel --parent-task <parent-task-id>
@@ -58,6 +61,8 @@ If the user says "stop reporting" or equivalent, stop polling `agents --json` on
 - Do not read or print secrets, tokens, cookies, private account data, or local credential files.
 - Do not require the user's project to modify `AGENTS.md`. Treat `--with-agents` as an explicit opt-in only.
 - Do not overwrite user task artifacts or config files without a clear RoleMux command that supports that behavior.
+- Structured verification manifests must use `executable` plus `args[]`; never convert shell command strings into executable work.
+- Explicit providers override capability routing. Do not present routing priority as a model-quality ranking.
 - Do not claim RoleMux completed a run unless the command output or artifact metadata confirms it.
 
 ## Output To User

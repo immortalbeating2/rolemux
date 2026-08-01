@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-08-01",
+  "scope": "read-only structured discussion smoke",
+  "verificationCommand": {
+    "executable": "node",
+    "args": ["--version"]
+  },
+  "attempts": [
+    {
+      "provider": "grok",
+      "candidateTaskId": "20260801T125025-098f98",
+      "candidateStatus": "timeout",
+      "candidateDurationMs": 121111,
+      "earlyStop": true
+    },
+    {
+      "provider": "opencode",
+      "candidateTaskId": "20260801T125148-3d69d2",
+      "candidateStatus": "success",
+      "counterTaskId": "20260801T125348-7c3b88",
+      "counterStatus": "timeout",
+      "counterDurationMs": 120110,
+      "exposedPreFixContinuationBug": true
+    },
+    {
+      "provider": "codex",
+      "candidateTaskId": "20260801T125710-c8059d",
+      "candidateStatus": "success",
+      "counterTaskId": "20260801T130356-e2941b",
+      "counterStatus": "timeout",
+      "counterDurationMs": 405977,
+      "earlyStopAfterCounter": true,
+      "exposedWindowsProcessTreeTimeoutGap": true
+    }
+  ],
+  "fullStructuredSuccess": false,
+  "conclusion": "Real provider state was captured. Mock-process structured E2E proves the complete successful artifact chain; real Grok, OpenCode, and Codex runs reached timeout before a successful synthesis. The runs exposed and drove fixes for counter-stage early stop and Windows process-tree termination."
+}

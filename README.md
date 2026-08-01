@@ -17,16 +17,18 @@ RoleMux 是一个轻量级多 AI CLI 角色编排工具，用来在本地把 `co
 - `rolemux install`：默认安装 shared runtime，可显式安装 Codex/Claude 非插件 Skill 或刷新 Codex App 插件。
 - `rolemux uninstall`：默认卸载 shared runtime 与非插件 Skill，Codex App 插件必须显式卸载。
 - `rolemux doctor`：检查 `codex`、`claude`、`agy`、`grok`、`opencode` 是否可用。
-- `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`。
+- `rolemux run`：按 provider + role 执行单个任务，支持 `--dry-run`、`--result-json`、总 timeout 和 fallback attempt 上限。
 - `rolemux plan`：让一个或多个 provider 生成计划。
 - `rolemux review`：让指定 provider 以 reviewer 角色审查任务。
-- `rolemux discuss`：生成多 provider 讨论工作流，支持 `parallel` / `serial` 模式。
+- `rolemux discuss`：支持 `parallel` / `serial`，以及“独立候选 → counter-review → argv 验证 → 结构化汇总”的 `structured` 模式。
+- `rolemux route`：按固定 task kind、adapter capability、可用/排除列表和 provider 上限给出确定性路由。
 - `rolemux status`：查看最近任务产物摘要。
 - `rolemux clean`：清理任务产物，支持 dry-run。
 - `rolemux dispatch --detach`：后台启动多 CLI agent 分发，立即返回监控与取消命令。
 - `rolemux agents`：查看当前项目的 agent dispatch；支持 `--json` 和 `--tui`。
 - `rolemux cancel --parent-task <id>`：请求取消仍在运行的 dispatch，不删除已有产物。
 - `.rolemux/tasks/{task-id}/`：保存任务输入、prompt、输出、stderr、metadata 和 HTML report。
+- 可选 `result.json`：版本化 findings/risks/actions/verification 契约；metadata 同时记录 prompt/config hash、Git HEAD、CLI version 和预算消耗。
 - 默认 roles：`architect`、`builder`、`reviewer`、`frontend-reviewer`、`summarizer`。
 
 ## 工作原理
@@ -219,6 +221,12 @@ rolemux doctor --providers opencode
 rolemux run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
 ```
 
+要求结构化结果并限制总执行预算：
+
+```powershell
+rolemux run --provider codex --fallback-providers 'grok,opencode' --role reviewer --task .\examples\basic-task.md --result-json --max-attempts 2 --timeout-ms 120000
+```
+
 预览 Grok Build 审查任务：
 
 ```powershell
@@ -248,6 +256,15 @@ rolemux review --provider codex --role reviewer --task .\examples\basic-task.md 
 ```powershell
 rolemux discuss --providers 'codex,claude,agy,grok,opencode' --task .\examples\basic-task.md --workdir . --mode parallel --dry-run
 ```
+
+查看能力路由，并预览结构化证据工作流：
+
+```powershell
+rolemux route --task-kind failure-review --available 'codex,claude,grok,opencode' --exclude claude --max-providers 2
+rolemux discuss --task .\examples\basic-task.md --workdir . --mode structured --task-kind failure-review --verification-manifest .\examples\verification-manifest.json --max-providers 2 --dry-run
+```
+
+显式 `--providers` 始终覆盖自动路由。验证 manifest 只接受 `version: 1` 和 `name/executable/args[]`，不会执行 shell command string。
 
 大任务拆分与分发：
 
@@ -328,6 +345,8 @@ rolemux clean --workdir . --dry-run
 - `diff.patch`：isolated 子任务的 git patch，包含新增未跟踪文件。
 - `worktree.txt`：isolated 子任务使用的 git worktree 绝对路径。
 - `metadata.json`：provider、role、状态、退出码、时间和 fallback attempts。
+- `result.json`：仅在 `--result-json` 或 structured synthesis 中存在；验证结果由 RoleMux 的实际命令执行覆盖模型自报。
+- `metadata.json` 新运行还包含 `schemaVersion: 1`、可复现 provenance；显式预算运行包含 `budget`。旧 metadata 继续可读。
 - `monitor.json`：当前 agent dispatch 快照，供 `agents --json`、TUI 和插件监控卡片读取。
 - `events.jsonl`：append-only 状态事件流，每行是合法 JSON。
 - `summary.md`：运行中和完成后的可读 agent 状态摘要。
@@ -456,6 +475,16 @@ node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-t
 ```
 
 更多发布检查见 `docs/release/checklist.md`。
+
+### 实验性 Eval Pack
+
+开发者可用同一批 26 个仓库事实，对比单个 Codex、无结构多 CLI 与 RoleMux 角色分工：
+
+```powershell
+npm run eval:pack -- --providers codex,claude,grok
+```
+
+该命令会在临时 detached worktree 中进行 10 次只读 provider 调用（structured 增加匿名 counter-review），原始产物写入被 Git 忽略的 `validation/eval-pack/runs/`，最新摘要写入 `validation/eval-pack/latest-report.md`。它只衡量本仓库固定事实，不是通用模型排名，也不是公开 `rolemux` 子命令。
 
 ## 安全默认值
 

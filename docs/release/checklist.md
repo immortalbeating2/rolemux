@@ -27,6 +27,9 @@ node .\dist\cli.js install --codex-plugin --dry-run
 node .\dist\cli.js uninstall --dry-run
 node .\dist\cli.js uninstall --codex-plugin --dry-run
 node .\dist\cli.js run --provider codex --role builder --task .\examples\basic-task.md --workdir . --dry-run
+node .\dist\cli.js run --provider codex --role reviewer --task .\examples\basic-task.md --result-json --max-attempts 1 --timeout-ms 5000 --dry-run
+node .\dist\cli.js route --task-kind research --available codex,grok --max-providers 1
+node .\dist\cli.js discuss --task .\examples\basic-task.md --mode structured --task-kind failure-review --available codex,grok --verification-manifest .\examples\verification-manifest.json --dry-run
 npm pack --dry-run
 git diff --check
 ```
@@ -50,7 +53,7 @@ Expected result:
 - [ ] Package does not include obsolete host-specific Skill source copies under `skills/codex/` or `skills/claude/`.
 - [ ] Package includes default roles under `roles/`.
 - [ ] Package includes `templates/config.toml` and `templates/report.html`.
-- [ ] Package includes `examples/basic-task.md` and `examples/mock-provider/README.md`.
+- [ ] Package includes `examples/basic-task.md`, `examples/verification-manifest.json`, and `examples/mock-provider/README.md`.
 - [ ] Package includes `docs/release/checklist.md` or an equivalent release checklist.
 - [ ] Package includes README and license files.
 - [ ] Package does not include `.rolemux/tasks/`, local logs, `.env`, credentials, temporary files, or private config.
