@@ -219,6 +219,62 @@ describe('task dispatch commands', () => {
     }
   });
 
+  test('dispatch maps opted-in Claude native children into the existing monitor', async () => {
+    const oldCommand = process.env.ROLEMUX_PROVIDER_CLAUDE_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CLAUDE_ARGS_PREFIX;
+    process.env.ROLEMUX_PROVIDER_CLAUDE_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CLAUDE_ARGS_PREFIX = resolve('tests/fixtures/native-agent-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux native agent dispatch '));
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Native agent work' },
+        subtasks: [{ id: 'one', title: 'One', provider: 'claude', task: 'Delegate review.' }]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'claude:1',
+        workdir,
+        nativeAgents: true
+      });
+      const monitor = JSON.parse(await readFile(join(result.artifactDir ?? '', 'monitor.json'), 'utf8')) as {
+        total: number;
+        agents: Array<{ nativeAgents?: Array<{ id: string; status: string; summary?: string }> }>;
+      };
+      const output = await readFile(join(result.artifactDir ?? '', 'subtasks', 'one', 'output.md'), 'utf8');
+
+      expect(monitor.total).toBe(1);
+      expect(monitor.agents[0]?.nativeAgents).toEqual([
+        expect.objectContaining({ id: 'child-1', status: 'success', summary: 'API_OK' })
+      ]);
+      expect(output).toContain('PARENT_OK');
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CLAUDE_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CLAUDE_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
+  test('rejects native agent monitoring before unsupported providers start', async () => {
+    const workdir = await mkdtemp(join(tmpdir(), 'rolemux unsupported native agents '));
+    const manifestPath = join(workdir, 'rolemux-tasks.json');
+    await writeFile(manifestPath, JSON.stringify({
+      version: 1,
+      parentTask: { title: 'Unsupported native agent work' },
+      subtasks: [{ id: 'one', title: 'One', provider: 'grok', task: 'Delegate review.' }]
+    }), 'utf8');
+
+    await expect(dispatchCommand({
+      manifest: manifestPath,
+      providers: 'grok:1',
+      workdir,
+      nativeAgents: true
+    })).rejects.toMatchObject({ code: 'PROVIDER_NATIVE_AGENTS_UNSUPPORTED' });
+    await expect(readFile(join(workdir, '.rolemux', 'tasks'), 'utf8')).rejects.toBeDefined();
+  });
+
   test('dispatch injects allowlisted context for readonly Codex subtasks', async () => {
     const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
     const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
@@ -331,6 +387,66 @@ describe('task dispatch commands', () => {
 
     expect(result.status).toBe('success');
     expect(result.maxConcurrency).toBeLessThanOrEqual(2);
+  });
+
+  test('dispatch publishes each provider completion with its own timing', async () => {
+    const oldCodexCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
+    const oldCodexArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
+    const oldGrokCommand = process.env.ROLEMUX_PROVIDER_GROK_COMMAND;
+    const oldGrokArgsPrefix = process.env.ROLEMUX_PROVIDER_GROK_ARGS_PREFIX;
+    const oldLog = process.env.ROLEMUX_SLOW_PROVIDER_LOG;
+    const fixture = resolve('tests/fixtures/slow-provider.mjs');
+    process.env.ROLEMUX_PROVIDER_CODEX_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX = `${fixture};600`;
+    process.env.ROLEMUX_PROVIDER_GROK_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_GROK_ARGS_PREFIX = `${fixture};40`;
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux dispatch completion timing '));
+      process.env.ROLEMUX_SLOW_PROVIDER_LOG = join(workdir, 'slow-provider.jsonl');
+      const manifestPath = join(workdir, 'rolemux-tasks.json');
+      await writeFile(manifestPath, JSON.stringify({
+        version: 1,
+        parentTask: { title: 'Completion timing' },
+        subtasks: [
+          { id: 'slow', title: 'Slow', provider: 'codex', task: 'Slow.', writePolicy: 'readonly' },
+          { id: 'fast', title: 'Fast', provider: 'grok', task: 'Fast.', writePolicy: 'readonly' }
+        ]
+      }), 'utf8');
+
+      const result = await dispatchCommand({
+        manifest: manifestPath,
+        providers: 'codex:1,grok:1',
+        workdir
+      });
+      const artifactDir = result.artifactDir ?? '';
+      const events = (await readFile(join(artifactDir, 'events.jsonl'), 'utf8'))
+        .trim()
+        .split(/\r?\n/)
+        .map(line => JSON.parse(line) as { agentId?: string; type: string; timestamp: string });
+      const monitor = JSON.parse(await readFile(join(artifactDir, 'monitor.json'), 'utf8')) as {
+        agents: Array<{ id: string; elapsedMs: number }>;
+      };
+      const slowMetadata = JSON.parse(await readFile(join(artifactDir, 'subtasks', 'slow', 'metadata.json'), 'utf8')) as {
+        finishedAt: string;
+        durationMs: number;
+      };
+      const fastMetadata = JSON.parse(await readFile(join(artifactDir, 'subtasks', 'fast', 'metadata.json'), 'utf8')) as {
+        durationMs: number;
+      };
+      const fastSuccess = events.find(event => event.agentId === 'fast' && event.type === 'agent-success');
+
+      expect(fastSuccess).toBeDefined();
+      expect(Date.parse(fastSuccess?.timestamp ?? '')).toBeLessThan(Date.parse(slowMetadata.finishedAt));
+      expect(monitor.agents.find(agent => agent.id === 'slow')?.elapsedMs).toBe(slowMetadata.durationMs);
+      expect(monitor.agents.find(agent => agent.id === 'fast')?.elapsedMs).toBe(fastMetadata.durationMs);
+    } finally {
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_COMMAND', oldCodexCommand);
+      restoreEnv('ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX', oldCodexArgsPrefix);
+      restoreEnv('ROLEMUX_PROVIDER_GROK_COMMAND', oldGrokCommand);
+      restoreEnv('ROLEMUX_PROVIDER_GROK_ARGS_PREFIX', oldGrokArgsPrefix);
+      restoreEnv('ROLEMUX_SLOW_PROVIDER_LOG', oldLog);
+    }
   });
 
   test('dispatch executes isolated subtasks in git worktrees and collects diff', async () => {

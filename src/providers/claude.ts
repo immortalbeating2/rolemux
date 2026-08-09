@@ -8,10 +8,14 @@ export const claudeAdapter: ProviderAdapter = {
   capabilities: {
     supportsPromptArgument: true,
     supportsWorkdir: true,
+    nativeAgentEvents: true,
     taskKinds: ['architecture', 'research', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
-    const command = applyProviderCommandOverride('claude', this.executable, ['-p', '--output-format', 'text', input.prompt]);
+    const args = input.nativeAgents === true
+      ? ['-p', '--output-format', 'stream-json', '--verbose', '--forward-subagent-text', input.prompt]
+      : ['-p', '--output-format', 'text', input.prompt];
+    const command = applyProviderCommandOverride('claude', this.executable, args);
     return {
       provider: 'claude',
       executable: command.executable,

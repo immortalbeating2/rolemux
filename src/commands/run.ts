@@ -4,6 +4,7 @@ import { createTaskStore } from '../core/task-store.js';
 import { runWorkflow } from '../core/workflow-runner.js';
 import { runWithFallback } from '../core/fallback.js';
 import { collectRunProvenance } from '../core/run-provenance.js';
+import { assertProvidersReady } from '../core/provider-preflight.js';
 import { parseTaskResult, taskResultOutputInstructions, type TaskResult } from '../core/task-result.js';
 import { isProviderName, type ProviderCommand, type ProviderName } from '../providers/index.js';
 
@@ -60,6 +61,7 @@ export async function runCommand(options: RunCommandOptions): Promise<RunCommand
   }
 
   const fallbackProviders = (options.fallbackProviders ?? []).map(parseProviderName);
+  await assertProvidersReady([provider, ...fallbackProviders]);
   const providerCount = 1 + fallbackProviders.length;
   const maxAttempts = options.maxAttempts ?? providerCount;
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1) {

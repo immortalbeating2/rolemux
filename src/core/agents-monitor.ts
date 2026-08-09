@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { CliError } from './cli-error.js';
+import type { NativeAgentEvent, NativeAgentStatus } from './native-agent-events.js';
 
 export type AgentMonitorStatus = 'queued' | 'running' | 'success' | 'failed' | 'timeout' | 'canceled';
 export type DispatchMonitorStatus = 'queued' | 'running' | 'success' | 'failed' | 'timeout' | 'cancel-requested' | 'canceled';
@@ -24,6 +25,19 @@ export interface MonitorAgentSnapshot extends MonitorAgentSeed {
   readonly artifactDir?: string | undefined;
   readonly hasDiff: boolean;
   readonly stderrSummary?: string | undefined;
+  readonly nativeAgents?: readonly MonitorNativeAgentSnapshot[] | undefined;
+}
+
+export interface MonitorNativeAgentSnapshot {
+  readonly id: string;
+  readonly type: string;
+  readonly title: string;
+  readonly status: NativeAgentStatus;
+  readonly lastEvent: string;
+  readonly startedAt: string;
+  readonly finishedAt?: string | undefined;
+  readonly elapsedMs: number;
+  readonly summary?: string | undefined;
 }
 
 export interface AgentsMonitorSnapshot {
@@ -130,25 +144,53 @@ export async function updateMonitorAgent(
   agentId: string,
   patch: Partial<Omit<MonitorAgentSnapshot, keyof MonitorAgentSeed>>
 ): Promise<AgentsMonitorSnapshot> {
-  const snapshot = await readMonitorSnapshot({ workdir: store.workdir, parentTaskId: store.parentTaskId });
-  const now = new Date().toISOString();
-  const agents = snapshot.agents.map(agent => {
-    if (agent.id !== agentId) {
-      return refreshAgentElapsed(agent, now);
-    }
-    return refreshAgentElapsed({
-      ...agent,
-      ...patch,
-      ...(patch.status === 'running' && agent.startedAt === undefined ? { startedAt: now } : {}),
-      ...((patch.status === 'success' || patch.status === 'failed' || patch.status === 'timeout' || patch.status === 'canceled') && agent.finishedAt === undefined
-        ? { finishedAt: now }
-        : {})
-    }, now);
+  return mutateMonitorSnapshot(store, (snapshot, now) => {
+    const agents = snapshot.agents.map(agent => {
+      if (agent.id !== agentId) {
+        return refreshAgentElapsed(agent, now);
+      }
+      const updated = { ...agent, ...patch };
+      return refreshAgentElapsed({
+        ...updated,
+        ...(patch.status === 'running' && updated.startedAt === undefined ? { startedAt: now } : {}),
+        ...((patch.status === 'success' || patch.status === 'failed' || patch.status === 'timeout' || patch.status === 'canceled') && updated.finishedAt === undefined
+          ? { finishedAt: now }
+          : {})
+      }, now);
+    });
+    return recomputeSnapshot({ ...snapshot, agents, updatedAt: now }, now);
   });
-  const nextSnapshot = recomputeSnapshot({ ...snapshot, agents, updatedAt: now }, now);
-  await writeSnapshot(store, nextSnapshot);
-  await writeSummary(store, nextSnapshot);
-  return nextSnapshot;
+}
+
+/** Adds or updates provider-native child activity under one RoleMux worker. */
+export async function updateMonitorNativeAgent(
+  store: AgentsMonitorStore,
+  agentId: string,
+  event: NativeAgentEvent
+): Promise<AgentsMonitorSnapshot> {
+  return mutateMonitorSnapshot(store, (snapshot, now) => {
+    const agents = snapshot.agents.map(agent => {
+      if (agent.id !== agentId) {
+        return refreshAgentElapsed(agent, now);
+      }
+      const existing = agent.nativeAgents?.find(child => child.id === event.id);
+      const child: MonitorNativeAgentSnapshot = {
+        id: event.id,
+        type: event.type,
+        title: event.title,
+        status: event.status,
+        lastEvent: event.summary ?? event.status,
+        startedAt: existing?.startedAt ?? now,
+        ...(event.status === 'running' ? {} : { finishedAt: now }),
+        elapsedMs: existing?.elapsedMs ?? 0,
+        ...(event.summary === undefined ? {} : { summary: event.summary })
+      };
+      const nativeAgents = [...(agent.nativeAgents ?? []).filter(item => item.id !== event.id), child]
+        .map(item => refreshNativeAgentElapsed(item, now));
+      return refreshAgentElapsed({ ...agent, nativeAgents }, now);
+    });
+    return recomputeSnapshot({ ...snapshot, agents, updatedAt: now }, now);
+  });
 }
 
 /** Reads the current monitor snapshot for a parent dispatch task. */
@@ -158,7 +200,7 @@ export async function readMonitorSnapshot(input: { workdir: string; parentTaskId
   try {
     return await enqueueSnapshotOperation(snapshotPath, async () => {
       const raw = await readFile(snapshotPath, 'utf8');
-      return JSON.parse(raw) as AgentsMonitorSnapshot;
+      return refreshSnapshotElapsed(JSON.parse(raw) as AgentsMonitorSnapshot, new Date().toISOString());
     });
   } catch (error) {
     throw new CliError(`Monitor task not found: ${input.parentTaskId}`, {
@@ -204,23 +246,20 @@ export async function requestMonitorCancel(input: { workdir: string; parentTaskI
     parentTaskId: input.parentTaskId,
     parentTaskDir: snapshot.parentTaskDir
   };
-  const cancelPath = join(snapshot.parentTaskDir, 'control', 'cancel.json');
+  const cancelPath = join(store.parentTaskDir, 'control', 'cancel.json');
   const alreadyRequested = existsSync(cancelPath);
-  await mkdir(join(snapshot.parentTaskDir, 'control'), { recursive: true });
+  await mkdir(join(store.parentTaskDir, 'control'), { recursive: true });
   await writeFile(cancelPath, `${JSON.stringify({
     parentTaskId: input.parentTaskId,
     requested: true,
     requestedAt: new Date().toISOString()
   }, null, 2)}\n`, 'utf8');
-  const now = new Date().toISOString();
-  const nextSnapshot = recomputeSnapshot({
+  const nextSnapshot = await mutateMonitorSnapshot(store, (snapshot, now) => recomputeSnapshot({
     ...snapshot,
     status: 'cancel-requested',
     updatedAt: now,
     nextRecommendedAction: 'cancelled'
-  }, now);
-  await writeSnapshot(store, nextSnapshot);
-  await writeSummary(store, nextSnapshot);
+  }, now));
   return { snapshot: nextSnapshot, alreadyRequested };
 }
 
@@ -238,6 +277,26 @@ function refreshAgentElapsed(agent: MonitorAgentSnapshot, nowIso: string): Monit
   return { ...agent, elapsedMs };
 }
 
+function refreshNativeAgentElapsed(agent: MonitorNativeAgentSnapshot, nowIso: string): MonitorNativeAgentSnapshot {
+  const end = agent.finishedAt === undefined ? Date.parse(nowIso) : Date.parse(agent.finishedAt);
+  return { ...agent, elapsedMs: Math.max(0, end - Date.parse(agent.startedAt)) };
+}
+
+function refreshSnapshotElapsed(snapshot: AgentsMonitorSnapshot, nowIso: string): AgentsMonitorSnapshot {
+  const agents = snapshot.agents.map(agent => refreshAgentElapsed({
+    ...agent,
+    ...(agent.nativeAgents === undefined
+      ? {}
+      : { nativeAgents: agent.nativeAgents.map(child => refreshNativeAgentElapsed(child, nowIso)) })
+  }, nowIso));
+  const active = snapshot.status === 'queued' || snapshot.status === 'running' || snapshot.status === 'cancel-requested';
+  return {
+    ...snapshot,
+    agents,
+    ...(active ? { elapsedMs: Math.max(0, Date.parse(nowIso) - Date.parse(snapshot.startedAt)) } : {})
+  };
+}
+
 function recomputeSnapshot(snapshot: AgentsMonitorSnapshot, nowIso: string): AgentsMonitorSnapshot {
   const done = snapshot.agents.filter(agent => isTerminalAgentStatus(agent.status)).length;
   const failed = snapshot.agents.some(agent => agent.status === 'failed');
@@ -245,9 +304,16 @@ function recomputeSnapshot(snapshot: AgentsMonitorSnapshot, nowIso: string): Age
   const canceled = snapshot.agents.some(agent => agent.status === 'canceled');
   const running = snapshot.agents.some(agent => agent.status === 'running');
   const queued = snapshot.agents.some(agent => agent.status === 'queued');
+  // A terminal provider state is not the same as a durable dispatch result:
+  // detached callers may observe monitor.json before output.md is written.
+  // Keep the parent running until every terminal worker has its artifact event.
+  const artifactsPending = snapshot.agents.some(agent => isTerminalAgentStatus(agent.status)
+    && agent.lastEvent !== 'output.md written');
   const cancelStillPending = snapshot.status === 'cancel-requested' && (running || queued);
   const status: DispatchMonitorStatus = cancelStillPending
     ? 'cancel-requested'
+    : artifactsPending
+      ? 'running'
     : failed
       ? 'failed'
       : timedOut
@@ -280,11 +346,29 @@ function isTerminalAgentStatus(status: AgentMonitorStatus): boolean {
 
 async function writeSnapshot(store: AgentsMonitorStore, snapshot: AgentsMonitorSnapshot): Promise<void> {
   const snapshotPath = join(store.parentTaskDir, 'monitor.json');
-  await enqueueSnapshotOperation(snapshotPath, async () => {
-    const tempPath = join(store.parentTaskDir, `monitor.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
-    await writeFile(tempPath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
-    await rename(tempPath, snapshotPath);
+  await enqueueSnapshotOperation(snapshotPath, () => writeSnapshotFile(store, snapshot));
+}
+
+/** Serializes the whole monitor read-modify-write transaction so parallel workers cannot overwrite each other. */
+async function mutateMonitorSnapshot(
+  store: AgentsMonitorStore,
+  mutate: (snapshot: AgentsMonitorSnapshot, now: string) => AgentsMonitorSnapshot
+): Promise<AgentsMonitorSnapshot> {
+  const snapshotPath = join(store.parentTaskDir, 'monitor.json');
+  return enqueueSnapshotOperation(snapshotPath, async () => {
+    const snapshot = JSON.parse(await readFile(snapshotPath, 'utf8')) as AgentsMonitorSnapshot;
+    const nextSnapshot = mutate(snapshot, new Date().toISOString());
+    await writeSnapshotFile(store, nextSnapshot);
+    await writeSummary(store, nextSnapshot);
+    return nextSnapshot;
   });
+}
+
+async function writeSnapshotFile(store: AgentsMonitorStore, snapshot: AgentsMonitorSnapshot): Promise<void> {
+  const snapshotPath = join(store.parentTaskDir, 'monitor.json');
+  const tempPath = join(store.parentTaskDir, `monitor.${process.pid}.${Date.now()}.${Math.random().toString(16).slice(2)}.tmp`);
+  await writeFile(tempPath, `${JSON.stringify(snapshot, null, 2)}\n`, 'utf8');
+  await rename(tempPath, snapshotPath);
 }
 
 async function writeSummary(store: AgentsMonitorStore, snapshot: AgentsMonitorSnapshot): Promise<void> {

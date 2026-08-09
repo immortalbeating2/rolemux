@@ -121,6 +121,60 @@ describe('workflow runner', () => {
     }
   });
 
+  test('parses Agy stream-json output in process transport mode', async () => {
+    const oldTransport = process.env.ROLEMUX_AGY_TRANSPORT;
+    const oldCommand = process.env.ROLEMUX_PROVIDER_AGY_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_AGY_ARGS_PREFIX;
+    process.env.ROLEMUX_AGY_TRANSPORT = 'process';
+    process.env.ROLEMUX_PROVIDER_AGY_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_AGY_ARGS_PREFIX = resolve('tests/fixtures/agy-machine-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux workflow agy machine '));
+      const result = await runWorkflow({
+        provider: 'agy',
+        role: 'summarizer',
+        task: 'Return a machine-readable answer.',
+        workdir
+      });
+
+      expect(result.status).toBe('success');
+      expect(result.output).toBe('AGY_MACHINE_OK\n');
+      expect(result.command.machineReadable).toBe(true);
+      expect(result.command.transport).toBeUndefined();
+    } finally {
+      restoreEnv('ROLEMUX_AGY_TRANSPORT', oldTransport);
+      restoreEnv('ROLEMUX_PROVIDER_AGY_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_AGY_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
+  test('keeps an unparsed Agy machine stream when the provider fails early', async () => {
+    const oldTransport = process.env.ROLEMUX_AGY_TRANSPORT;
+    const oldCommand = process.env.ROLEMUX_PROVIDER_AGY_COMMAND;
+    const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_AGY_ARGS_PREFIX;
+    process.env.ROLEMUX_AGY_TRANSPORT = 'process';
+    process.env.ROLEMUX_PROVIDER_AGY_COMMAND = process.execPath;
+    process.env.ROLEMUX_PROVIDER_AGY_ARGS_PREFIX = resolve('tests/fixtures/agy-machine-failure-provider.mjs');
+
+    try {
+      const workdir = await mkdtemp(join(tmpdir(), 'rolemux workflow agy failure '));
+      const result = await runWorkflow({
+        provider: 'agy',
+        role: 'summarizer',
+        task: 'Return a machine-readable answer.',
+        workdir
+      });
+
+      expect(result.status).toBe('failed');
+      expect(result.output).toContain('permission denied by headless provider');
+    } finally {
+      restoreEnv('ROLEMUX_AGY_TRANSPORT', oldTransport);
+      restoreEnv('ROLEMUX_PROVIDER_AGY_COMMAND', oldCommand);
+      restoreEnv('ROLEMUX_PROVIDER_AGY_ARGS_PREFIX', oldArgsPrefix);
+    }
+  });
+
   test('strips terminal styling from OpenCode process output', async () => {
     const oldCommand = process.env.ROLEMUX_PROVIDER_OPENCODE_COMMAND;
     const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_OPENCODE_ARGS_PREFIX;

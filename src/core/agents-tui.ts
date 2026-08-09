@@ -47,6 +47,11 @@ export function renderAgentsTui(
     lines.push(`elapsed: ${formatDuration(selected.elapsedMs)}`);
     lines.push(`artifact: ${selected.artifactDir ?? 'not written'}`);
     lines.push(`diff: ${selected.hasDiff ? 'available' : 'not available'}`);
+    const nativeAgents = selected.nativeAgents ?? [];
+    lines.push(`native agents: ${nativeAgents.length}`);
+    for (const child of nativeAgents) {
+      lines.push(`  - ${child.id}  ${child.type}  ${child.status}  ${child.title}`);
+    }
     if (options.expanded === true) {
       lines.push(`write policy: ${selected.writePolicy}`);
       lines.push(`stderr: ${selected.stderrSummary ?? 'empty'}`);

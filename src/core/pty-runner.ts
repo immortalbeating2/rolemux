@@ -54,9 +54,16 @@ export async function runPtyProcess(input: ProcessRunInput): Promise<ProcessRunR
         input.signal?.addEventListener('abort', abortHandler, { once: true });
       }
 
-      terminal.onData(chunk => {
-        output += chunk;
-      });
+     terminal.onData(chunk => {
+       output += chunk;
+        if (input.successOutput !== undefined && output.includes(input.successOutput)) {
+          finish({
+            status: 'success',
+            exitCode: 0,
+            signal: null
+          });
+        }
+     });
 
       terminal.onExit(event => {
         finish({

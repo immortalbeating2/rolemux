@@ -8,6 +8,7 @@ export const codexAdapter: ProviderAdapter = {
   capabilities: {
     supportsPromptArgument: false,
     supportsWorkdir: true,
+    nativeAgentEvents: false,
     taskKinds: ['architecture', 'research', 'implementation', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {

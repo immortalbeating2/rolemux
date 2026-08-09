@@ -21,6 +21,7 @@ import { statusCommand } from './commands/status.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { isProviderName, type ProviderName } from './providers/index.js';
 import { worktreeCleanupCommand } from './commands/worktree.js';
+import { CliError } from './core/cli-error.js';
 
 /**
  * 创建 RoleMux Commander 实例，供 CLI 入口和测试复用。
@@ -75,9 +76,15 @@ export function createCli(): Command {
   cli.command('doctor')
     .description('check provider executables')
     .option('--providers <providers>', 'comma-separated provider list')
+    .option('--probe', 'run a fixed read-only authentication/network/stdout probe')
+    .option('--probe-timeout-ms <milliseconds>', 'timeout for each provider probe', parsePositiveInteger, 30000)
     .action(async options => {
       const providers = parseProviders(options.providers);
-      const result = await doctorCommand(providers === undefined ? {} : { providers });
+      const result = await doctorCommand({
+        ...(providers === undefined ? {} : { providers }),
+        probe: options.probe === true,
+        probeTimeoutMs: options.probeTimeoutMs
+      });
       printJson(result);
     });
 
@@ -115,6 +122,7 @@ export function createCli(): Command {
     .option('--workdir <workdir>', 'working directory', process.cwd())
     .option('--dry-run', 'preview dispatch without executing providers')
     .option('--detach', 'start dispatch in the background and monitor it through agents')
+    .option('--native-agents', 'allow verified provider-native subagents and show them in agents/TUI')
     .action(async options => {
       if (options.resume !== undefined) {
         printJson(await dispatchResumeCommand({
@@ -132,7 +140,8 @@ export function createCli(): Command {
         workers: options.workers,
         workdir: options.workdir,
         dryRun: options.dryRun === true,
-        detach: options.detach === true
+        detach: options.detach === true,
+        nativeAgents: options.nativeAgents === true
       }));
     });
 
@@ -143,6 +152,7 @@ export function createCli(): Command {
     .requiredOption('--parent-task <parentTask>', 'preallocated parent task id')
     .option('--workers <workers>', 'worker count for provider-list shortcut', parseInteger)
     .option('--workdir <workdir>', 'working directory', process.cwd())
+    .option('--native-agents', 'allow verified provider-native subagents and show them in agents/TUI')
     .action(async options => {
       printJson(await dispatchCommand({
         manifest: options.manifest,
@@ -151,7 +161,8 @@ export function createCli(): Command {
         workdir: options.workdir,
         parentTaskId: options.parentTask,
         dryRun: false,
-        detach: false
+        detach: false,
+        nativeAgents: options.nativeAgents === true
       }));
     });
 
@@ -365,7 +376,16 @@ export async function main(argv = process.argv): Promise<void> {
   try {
     await createCli().parseAsync(argv);
   } catch (error) {
-    console.error(error instanceof Error ? error.message : String(error));
+    if (error instanceof CliError && error.details?.status === 'blocked') {
+      console.error(JSON.stringify({
+        status: 'blocked',
+        code: error.code,
+        message: error.message,
+        ...error.details
+      }, null, 2));
+    } else {
+      console.error(error instanceof Error ? error.message : String(error));
+    }
     process.exitCode = 1;
   }
 }

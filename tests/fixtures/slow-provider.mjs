@@ -3,7 +3,10 @@
 import { appendFileSync } from 'node:fs';
 
 const logPath = process.env.ROLEMUX_SLOW_PROVIDER_LOG;
-const delayMs = Number.parseInt(process.env.ROLEMUX_SLOW_PROVIDER_DELAY_MS ?? '150', 10);
+const argumentDelayMs = Number.parseInt(process.argv[2] ?? '', 10);
+const delayMs = Number.isNaN(argumentDelayMs)
+  ? Number.parseInt(process.env.ROLEMUX_SLOW_PROVIDER_DELAY_MS ?? '150', 10)
+  : argumentDelayMs;
 
 if (logPath === undefined || logPath.trim().length === 0) {
   throw new Error('ROLEMUX_SLOW_PROVIDER_LOG is required.');

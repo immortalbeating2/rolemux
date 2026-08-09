@@ -7,6 +7,7 @@ import { routeCommand, type RouteCommandResult } from './route.js';
 import { runCommand } from './run.js';
 import type { ProviderCommand, TaskKind } from '../providers/index.js';
 import type { RunCommandResult } from './run.js';
+import { assertProviderNamesReady } from '../core/provider-preflight.js';
 
 export type DiscussMode = 'parallel' | 'serial' | 'structured';
 
@@ -55,6 +56,13 @@ export async function discussCommand(options: DiscussCommandOptions): Promise<Di
   const providers = explicitProviders.length > 0 ? explicitProviders : [...(routing?.selected ?? [])];
   if (providers.length === 0) {
     throw new Error('Discuss requires explicit providers or a task kind with at least one available route.');
+  }
+  if (options.dryRun !== true) {
+    await assertProviderNamesReady([
+      ...providers,
+      ...(options.counterReviewer === undefined ? [] : [options.counterReviewer]),
+      ...(options.summarizer === undefined ? [] : [options.summarizer])
+    ]);
   }
   if (mode === 'structured') {
     return runStructuredDiscussion(options, providers, routing);

@@ -1,9 +1,18 @@
 # RoleMux 当前状态
 
-更新时间：2026-08-01
-当前阶段：RoleMux MVP 已按 M0-M6 完成；六项轻量增强已实现：Eval Pack v2、统一 `result.json`、结构化证据工作流、能力路由、预算/提前停止、可复现 metadata；未引入 DAG、数据库、Dashboard、ML router 或新依赖
+更新时间：2026-08-09
+当前阶段：RoleMux MVP 已按 M0-M6 完成；provider preflight、可选深度 probe、Claude/Agy 原生子代理监控与 Windows 非交互 provider 兼容已实现；Codex/Grok/OpenCode 的原生实时监控保持 capability blocked；未引入 DAG、数据库、Dashboard、ML router 或新依赖
 
 ## 当前真实状态
+
+- 2026-08-04 所有真实 `run/plan/review/discuss/dispatch` 在启动任何 provider 前统一执行 executable preflight；缺失 provider 返回结构化 `blocked`，不会部分启动。`doctor --probe` 可分类 `auth/network/output/process/timeout`。
+- `dispatch --native-agents` 作为显式 opt-in，把 Claude `task_started/task_notification` 与 Agy `subagent ACTIVE/DONE` 映射到现有 `monitor.json`、`events.jsonl` 和共享 TUI 的嵌套 `nativeAgents[]`；child 不改变顶层 worker 总数或写入边界。
+- 顶层 fan-out monitor 已使用事务化 read-modify-write，避免并发 worker 状态互相覆盖；每个 provider 完成立即写 terminal 状态与真实计时，父产物完成后再写 `agent-artifact`；读取时动态刷新 running elapsed。
+- detached monitor 在子任务产物写入前保持父状态为 `running`，避免调用方读到 provider success 但 `output.md` 尚未落盘的中间状态。
+- Skill 默认只在至少两个独立且预计约 30 秒以上的子任务中选择 fan-out；普通执行只做 executable preflight，深度 probe 保留给首次/状态变化/失败或高成本不确定场景。
+- Windows PowerShell wrapper 的代理环境不会自动传给子进程；Agy 非交互模式可用 `ROLEMUX_AGY_TRANSPORT=process` + `stream-json`，并支持 `ROLEMUX_AGY_PRINT_TIMEOUT`，不默认绕过 provider 权限。
+- 真实认证矩阵：Claude、Agy 支持；Codex 本机两次 `collab spawn failed`；Grok 原生 spawn 调用失败且认证刷新有告警；OpenCode 只在完成后输出 child tool event。后三者不做文本启发式解析。
+- 本轮 release gate：35 个 test files / 169 项 unit tests、3 项 CLI E2E、build、pack dry-run、CLI smoke、`git diff --check` 全部通过；插件源与 Codex cache Skill SHA-256 一致。
 
 - 2026-08-01 新增 `run --result-json --max-attempts --timeout-ms`、`route`、`discuss --mode structured`；旧 CLI 默认路径、`output.md` 和旧 metadata 解析保持兼容。
 - structured workflow 固定为独立候选并行 → 匿名 counter-review → `executable + args[]` 验证 → 单一 synthesis；counter 失败立即停止，真实 verification 覆盖模型自报并写入最终 `result.json`。

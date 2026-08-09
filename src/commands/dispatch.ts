@@ -8,11 +8,14 @@ import { readSubtaskManifest } from '../core/subtask-manifest.js';
 import { buildWorkerPool } from '../core/worker-pool.js';
 import { createDispatchArtifacts, createDispatchTaskId } from '../core/dispatch-artifacts.js';
 import { buildContextPack } from '../core/context-pack.js';
-import { appendMonitorEvent, ensureMonitorStore, isCancelRequested, updateMonitorAgent } from '../core/agents-monitor.js';
+import { appendMonitorEvent, ensureMonitorStore, isCancelRequested, updateMonitorAgent, updateMonitorNativeAgent } from '../core/agents-monitor.js';
 import { collectWorktreeDiff, createIsolatedWorktree } from '../core/git-worktree.js';
 import { runWorkflow } from '../core/workflow-runner.js';
 import { collectRunProvenance } from '../core/run-provenance.js';
-import type { ProviderName } from '../providers/index.js';
+import { assertProvidersReady } from '../core/provider-preflight.js';
+import { getProviderAdapter, type ProviderName } from '../providers/index.js';
+import { CliError } from '../core/cli-error.js';
+import type { NativeAgentEvent } from '../core/native-agent-events.js';
 import type { DispatchRunArtifactInput } from '../core/dispatch-artifacts.js';
 import type { AgentsMonitorStore, MonitorAgentSeed } from '../core/agents-monitor.js';
 import type { SubtaskDefinition, SubtaskManifest, SubtaskWritePolicy } from '../core/subtask-manifest.js';
@@ -26,6 +29,7 @@ export interface DispatchCommandOptions {
   readonly dryRun?: boolean | undefined;
   readonly detach?: boolean | undefined;
   readonly parentTaskId?: string | undefined;
+  readonly nativeAgents?: boolean | undefined;
 }
 
 export interface DispatchAssignment {
@@ -70,6 +74,11 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
     };
   }
 
+  await assertProvidersReady(assignments.map(assignment => assignment.provider));
+  if (options.nativeAgents === true) {
+    assertNativeAgentProviders(assignments.map(assignment => assignment.provider));
+  }
+
   const workdir = options.workdir ?? process.cwd();
   const parentTaskId = options.parentTaskId ?? await createDispatchTaskId(workdir);
   const monitorSeeds = buildMonitorSeeds(manifest, assignments);
@@ -87,7 +96,8 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
       providers: options.providers,
       workers: options.workers,
       workdir,
-      parentTaskId
+      parentTaskId,
+      nativeAgents: options.nativeAgents === true
     });
     const agentsCommand = `rolemux agents --parent-task ${parentTaskId}`;
     const agentsJsonCommand = `${agentsCommand} --json`;
@@ -123,7 +133,8 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
     assignments,
     workdir,
     parentTaskId,
-    monitor
+    monitor,
+    nativeAgents: options.nativeAgents === true
   });
 
   const artifactRecord = await createDispatchArtifacts({
@@ -135,7 +146,7 @@ export async function dispatchCommand(options: DispatchCommandOptions): Promise<
     assignments,
     runs
   });
-  await finalizeMonitorFromRuns(monitor, runs);
+  await markMonitorArtifactsWritten(monitor, runs);
 
   return {
     status: artifactRecord.metadata.status,
@@ -155,6 +166,8 @@ async function runDispatchAssignment(options: {
   subtask: SubtaskDefinition;
   workdir: string;
   parentTaskId: string;
+  monitor: AgentsMonitorStore;
+  nativeAgents: boolean;
   signal?: AbortSignal | undefined;
 }): Promise<DispatchRunArtifactInput> {
   const isolatedWorktree = options.assignment.writePolicy === 'isolated'
@@ -179,6 +192,19 @@ async function runDispatchAssignment(options: {
     workdir: runWorkdir,
     ...(contextPack === undefined ? {} : { context: contextPack.context }),
     ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.nativeAgents
+      ? {
+          nativeAgents: true,
+          onNativeAgentEvent: async (event: NativeAgentEvent) => {
+            await appendMonitorEvent(options.monitor, {
+              agentId: options.assignment.subtaskId,
+              type: `native-agent-${event.status}`,
+              message: `${event.id}: ${event.summary ?? event.title}`
+            });
+            await updateMonitorNativeAgent(options.monitor, options.assignment.subtaskId, event);
+          }
+        }
+      : {}),
     dryRun: false
   });
   const provenance = await collectRunProvenance({
@@ -291,6 +317,7 @@ async function runAssignmentsWithProviderLimits(options: {
   workdir: string;
   parentTaskId: string;
   monitor: AgentsMonitorStore;
+  nativeAgents: boolean;
 }): Promise<DispatchRunArtifactInput[]> {
   const providerLimits = buildProviderLimits(options.workers, options.assignments);
   const queues = groupAssignmentsByProvider(options.assignments);
@@ -305,6 +332,7 @@ async function runAssignmentsWithProviderLimits(options: {
       workdir: options.workdir,
       parentTaskId: options.parentTaskId,
       monitor: options.monitor,
+      nativeAgents: options.nativeAgents,
       runs
     });
   }));
@@ -354,6 +382,7 @@ async function runProviderQueue(options: {
   workdir: string;
   parentTaskId: string;
   monitor: AgentsMonitorStore;
+  nativeAgents: boolean;
   runs: Array<DispatchRunArtifactInput | undefined>;
 }): Promise<void> {
   let cursor = 0;
@@ -396,13 +425,18 @@ async function runProviderQueue(options: {
         lastEvent: 'provider process started'
       });
       try {
-        options.runs[current.index] = await runDispatchAssignment({
+        const run = await runDispatchAssignment({
           assignment: current.assignment,
           subtask,
           workdir: options.workdir,
           parentTaskId: options.parentTaskId,
+          monitor: options.monitor,
+          nativeAgents: options.nativeAgents,
           signal: controller.signal
         });
+        options.runs[current.index] = run;
+        // 每个 provider 完成后立即发布状态；不能等待其他 provider 或父产物汇总。
+        await publishMonitorRunCompletion(options.monitor, run);
       } finally {
         clearInterval(cancelPoll);
       }
@@ -410,25 +444,32 @@ async function runProviderQueue(options: {
   }));
 }
 
-async function finalizeMonitorFromRuns(monitor: AgentsMonitorStore, runs: readonly DispatchRunArtifactInput[]): Promise<void> {
+async function publishMonitorRunCompletion(monitor: AgentsMonitorStore, run: DispatchRunArtifactInput): Promise<void> {
+  const status = toMonitorStatus(run.status);
+  const lastEvent = status === 'success' ? 'provider completed' : status;
+  await appendMonitorEvent(monitor, {
+    agentId: run.subtaskId,
+    type: `agent-${status}`,
+    message: lastEvent
+  });
+  await updateMonitorAgent(monitor, run.subtaskId, {
+    status,
+    lastEvent,
+    hasDiff: run.diff !== undefined,
+    stderrSummary: summarizeStderr(run.stderr),
+    ...(run.startedAt === undefined ? {} : { startedAt: run.startedAt }),
+    ...(run.finishedAt === undefined ? {} : { finishedAt: run.finishedAt })
+  });
+}
+
+async function markMonitorArtifactsWritten(monitor: AgentsMonitorStore, runs: readonly DispatchRunArtifactInput[]): Promise<void> {
   for (const run of runs) {
-    const status = toMonitorStatus(run.status);
-    const lastEvent = status === 'success'
-      ? 'output.md written'
-      : status === 'canceled'
-        ? 'canceled'
-        : `${status} artifact written`;
     await appendMonitorEvent(monitor, {
       agentId: run.subtaskId,
-      type: `agent-${status}`,
-      message: lastEvent
+      type: 'agent-artifact',
+      message: 'output.md written'
     });
-    await updateMonitorAgent(monitor, run.subtaskId, {
-      status,
-      lastEvent,
-      hasDiff: run.diff !== undefined,
-      stderrSummary: summarizeStderr(run.stderr)
-    });
+    await updateMonitorAgent(monitor, run.subtaskId, { lastEvent: 'output.md written' });
   }
 }
 
@@ -463,6 +504,7 @@ function startDetachedDispatchRunner(options: {
   readonly workers?: number | undefined;
   readonly workdir: string;
   readonly parentTaskId: string;
+  readonly nativeAgents?: boolean | undefined;
 }): void {
   const launch = resolveDetachedRunnerLaunch();
   const args = [
@@ -480,6 +522,9 @@ function startDetachedDispatchRunner(options: {
   if (options.workers !== undefined) {
     args.push('--workers', String(options.workers));
   }
+  if (options.nativeAgents === true) {
+    args.push('--native-agents');
+  }
   const child = spawn(launch.executable, args, {
     cwd: resolve(options.workdir),
     env: process.env,
@@ -489,6 +534,21 @@ function startDetachedDispatchRunner(options: {
     windowsHide: true
   });
   child.unref();
+}
+
+function assertNativeAgentProviders(providers: readonly ProviderName[]): void {
+  const unsupported = [...new Set(providers)].filter(provider => !getProviderAdapter(provider).capabilities.nativeAgentEvents);
+  if (unsupported.length === 0) {
+    return;
+  }
+  throw new CliError(`Native agent events are not verified for: ${unsupported.join(', ')}`, {
+    code: 'PROVIDER_NATIVE_AGENTS_UNSUPPORTED',
+    details: {
+      status: 'blocked',
+      providers: unsupported,
+      nextAction: 'Run without --native-agents or use a provider with verified native child lifecycle events.'
+    }
+  });
 }
 
 function resolveDetachedRunnerLaunch(): { executable: string; args: string[] } {

@@ -1,6 +1,7 @@
 import { runCommand } from './run.js';
 import type { ProviderCommand } from '../providers/index.js';
 import type { RunCommandResult } from './run.js';
+import { assertProviderNamesReady } from '../core/provider-preflight.js';
 
 export interface PlanCommandOptions {
   providers: string[];
@@ -21,6 +22,7 @@ export interface PlanCommandResult {
  */
 export async function planCommand(options: PlanCommandOptions): Promise<PlanCommandResult> {
   if (options.dryRun !== true) {
+    await assertProviderNamesReady(options.providers);
     const runs = await Promise.all(options.providers.map(provider => runCommand({
       provider,
       role: 'architect',

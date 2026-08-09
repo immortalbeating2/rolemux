@@ -4,6 +4,7 @@ import { buildPrompt } from './prompt-builder.js';
 import { runProcess } from './process-runner.js';
 import { runPtyProcess, stripTerminalSequences } from './pty-runner.js';
 import { loadRolePrompt } from './role-loader.js';
+import { parseNativeAgentEvents, parseNativeAgentOutput, type NativeAgentEvent } from './native-agent-events.js';
 
 /** Single workflow run request. */
 export interface WorkflowRunInput {
@@ -16,6 +17,8 @@ export interface WorkflowRunInput {
   readonly dryRun?: boolean;
   readonly timeoutMs?: number;
   readonly signal?: AbortSignal | undefined;
+  readonly nativeAgents?: boolean | undefined;
+  readonly onNativeAgentEvent?: ((event: NativeAgentEvent) => void | Promise<void>) | undefined;
 }
 
 /** Workflow runner result used by command modules. */
@@ -44,7 +47,12 @@ export async function runWorkflow(input: WorkflowRunInput): Promise<WorkflowRunR
     ...(input.outputInstructions === undefined ? {} : { outputInstructions: input.outputInstructions })
   });
   const adapter = getProviderAdapter(input.provider);
-  const command = adapter.buildCommand({ prompt, workdir: input.workdir, role: input.role });
+  const command = adapter.buildCommand({
+    prompt,
+    workdir: input.workdir,
+    role: input.role,
+    ...(input.nativeAgents === true ? { nativeAgents: true } : {})
+  });
 
   if (input.dryRun) {
     const dryRunAt = new Date().toISOString();
@@ -64,6 +72,7 @@ export async function runWorkflow(input: WorkflowRunInput): Promise<WorkflowRunR
   }
 
   const startedAt = new Date();
+  let nativeEventQueue = Promise.resolve();
   const processInput = {
     executable: command.executable,
     args: command.args,
@@ -72,15 +81,33 @@ export async function runWorkflow(input: WorkflowRunInput): Promise<WorkflowRunR
     ...(input.timeoutMs !== undefined || command.timeoutMs !== undefined
       ? { timeoutMs: input.timeoutMs ?? command.timeoutMs }
       : {}),
-    ...(input.signal !== undefined ? { signal: input.signal } : {})
+    ...(input.signal !== undefined ? { signal: input.signal } : {}),
+    ...(input.nativeAgents === true && input.onNativeAgentEvent !== undefined
+      ? {
+          onStdoutLine: (line: string) => {
+            for (const event of parseNativeAgentEvents(input.provider, line)) {
+              nativeEventQueue = nativeEventQueue.then(() => input.onNativeAgentEvent?.(event));
+            }
+          }
+        }
+      : {})
   };
   const processResult = command.transport === 'pty'
     ? await runPtyProcess(processInput)
     : await runProcess(processInput);
+  await nativeEventQueue;
   const finishedAt = new Date(startedAt.getTime() + processResult.durationMs);
-  const output = command.stripTerminalOutput === true
+  const rawOutput = command.stripTerminalOutput === true
     ? stripTerminalSequences(processResult.stdout)
     : processResult.stdout;
+  const parsedOutput = input.nativeAgents === true || command.machineReadable === true
+    ? parseNativeAgentOutput(input.provider, rawOutput)
+    : rawOutput;
+  // Preserve an unparsed machine stream on failure so provider diagnostics are
+  // not silently discarded when a CLI exits before emitting its final result.
+  const output = parsedOutput.trim().length > 0 || rawOutput.trim().length === 0
+    ? parsedOutput
+    : rawOutput;
   const stderr = command.stripTerminalOutput === true
     ? stripTerminalSequences(processResult.stderr)
     : processResult.stderr;

@@ -10,6 +10,7 @@ export const opencodeAdapter: ProviderAdapter = {
   capabilities: {
     supportsPromptArgument: true,
     supportsWorkdir: true,
+    nativeAgentEvents: false,
     taskKinds: ['implementation', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {

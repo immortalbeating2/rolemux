@@ -8,16 +8,24 @@ export const agyAdapter: ProviderAdapter = {
   capabilities: {
     supportsPromptArgument: true,
     supportsWorkdir: true,
+    nativeAgentEvents: true,
     taskKinds: ['implementation', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {
     const printTimeout = parseAgyDuration(process.env.ROLEMUX_AGY_PRINT_TIMEOUT);
     const timeoutArgs = buildPrintTimeoutArgs(process.env.ROLEMUX_AGY_PRINT_TIMEOUT);
+    const transport = process.env.ROLEMUX_AGY_TRANSPORT?.trim().toLowerCase();
+    const usePty = input.nativeAgents !== true && transport !== 'process';
+    const machineReadable = input.nativeAgents === true || transport === 'process';
     // Antigravity/Agy 对参数顺序敏感；参考 ccg-workflow，-p 必须紧贴最终 prompt。
+    const nativeArgs = machineReadable
+      ? ['--disable-slash-commands', '--output-format', 'stream-json']
+      : [];
     const command = applyProviderCommandOverride('agy', this.executable, [
       '--add-dir',
       input.workdir,
       ...timeoutArgs,
+      ...nativeArgs,
       '-p',
       input.prompt
     ]);
@@ -27,7 +35,8 @@ export const agyAdapter: ProviderAdapter = {
       args: command.args,
       cwd: input.workdir,
       ...(printTimeout === undefined ? {} : { timeoutMs: printTimeout + 30_000 }),
-      transport: 'pty'
+      ...(usePty ? { transport: 'pty' as const } : {}),
+      ...(machineReadable ? { machineReadable: true } : {})
     };
   }
 };

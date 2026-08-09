@@ -8,6 +8,7 @@ export const grokAdapter: ProviderAdapter = {
   capabilities: {
     supportsPromptArgument: true,
     supportsWorkdir: true,
+    nativeAgentEvents: false,
     taskKinds: ['architecture', 'research', 'ui-review', 'failure-review']
   },
   buildCommand(input: ProviderCommandInput): ProviderCommand {

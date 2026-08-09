@@ -5,6 +5,19 @@ import { describe, expect, test } from 'vitest';
 import { runProcess } from '../../src/core/process-runner.js';
 
 describe('process runner', () => {
+  test('streams complete stdout lines while preserving full output', async () => {
+    const lines: string[] = [];
+    const result = await runProcess({
+      executable: process.execPath,
+      args: ['-e', "process.stdout.write('one\\ntwo\\n')"],
+      onStdoutLine: line => lines.push(line)
+    });
+
+    expect(result.status).toBe('success');
+    expect(result.stdout).toBe('one\ntwo\n');
+    expect(lines).toEqual(['one', 'two']);
+  });
+
   test('captures stdout for a successful process', async () => {
     const result = await runProcess({
       executable: process.execPath,
@@ -15,6 +28,19 @@ describe('process runner', () => {
     expect(result.status).toBe('success');
     expect(result.stdout.trim()).toBe('ok');
     expect(result.exitCode).toBe(0);
+  });
+
+  test('finishes a probe when the success marker arrives before provider exit', async () => {
+    const result = await runProcess({
+      executable: process.execPath,
+      args: ['-e', "process.stdout.write('ROLEMUX_PROBE_OK'); setInterval(() => {}, 1000)"],
+      successOutput: 'ROLEMUX_PROBE_OK',
+      timeoutMs: 5000
+    });
+
+    expect(result.status).toBe('success');
+    expect(result.stdout).toContain('ROLEMUX_PROBE_OK');
+    expect(result.durationMs).toBeLessThan(5000);
   });
 
   test('captures non-zero exits without throwing', async () => {

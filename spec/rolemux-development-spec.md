@@ -203,7 +203,9 @@ rolemux worktree cleanup --parent-task <parent-task-id> --workdir .
 rolemux run --provider claude --role architect --task task.md --dry-run
 ```
 
-`writePolicy=isolated` 要求 `--workdir` 位于 git work tree 中。Windows PowerShell 中通过 `rolemux.ps1` shim 传入逗号列表时建议加引号，例如 `--providers 'codex:2,claude:1'` 和 `--subtasks 'one,two'`。`dispatch --detach` 会写入 `.rolemux/tasks/{parent-task-id}/monitor.json`、`events.jsonl`、`summary.md` 和 `control/`，然后用参数数组启动后台 runner；插件或上层智能体默认轮询 `agents --json` 生成对话内监控卡片，人类可另开终端用 `agents --tui` 查看全屏监控。`cancel` 只写入取消请求并终止仍在运行的 provider，不删除已完成 agent 产物。RoleMux 会为每个 isolated 子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}`，provider 在该目录内执行，执行后将 `git diff --binary HEAD` 写入 `.rolemux/tasks/{parent-task-id}/subtasks/{subtask-id}/diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务 metadata、manifest 和子任务 metadata，输出每个子任务的状态、provider、role、产物路径、patch/worktree 是否存在和下一步命令建议；当前不会重新执行失败 provider。`merge --dry-run` 默认只读取并预览这些 patch；只有用户显式使用 `merge --auto-merge` 时，RoleMux 才会运行 `git apply --check` 并应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量 patch。`worktree cleanup` 只清理 `worktree.txt` 记录且位于 `.rolemux/worktrees/` 下的 worktree，不删除任务产物或 git branch。当前阶段不自动解决冲突、不自动清理 worktree。
+`writePolicy=isolated` 要求 `--workdir` 位于 git work tree 中。Windows PowerShell 中通过 `rolemux.ps1` shim 传入逗号列表时建议加引号，例如 `--providers 'codex:2,claude:1'` 和 `--subtasks 'one,two'`。`dispatch --detach` 会写入 `.rolemux/tasks/{parent-task-id}/monitor.json`、`events.jsonl`、`summary.md` 和 `control/`，然后用参数数组启动后台 runner；并发 worker 的 monitor 更新必须覆盖完整 read-modify-write 事务，每个 worker 完成后立即记录独立 terminal 状态与真实起止时间，父产物写完后再记录 `agent-artifact`。插件或上层智能体默认轮询 `agents --json` 生成对话内监控卡片，人类可另开终端用 `agents --tui` 查看全屏监控。`cancel` 只写入取消请求并终止仍在运行的 provider，不删除已完成 agent 产物。RoleMux 会为每个 isolated 子任务创建 `.rolemux/worktrees/{parent-task-id}/{subtask-id}`，provider 在该目录内执行，执行后将 `git diff --binary HEAD` 写入 `.rolemux/tasks/{parent-task-id}/subtasks/{subtask-id}/diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务 metadata、manifest 和子任务 metadata，输出每个子任务的状态、provider、role、产物路径、patch/worktree 是否存在和下一步命令建议；当前不会重新执行失败 provider。`merge --dry-run` 默认只读取并预览这些 patch；只有用户显式使用 `merge --auto-merge` 时，RoleMux 才会运行 `git apply --check` 并应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量 patch。`worktree cleanup` 只清理 `worktree.txt` 记录且位于 `.rolemux/worktrees/` 下的 worktree，不删除任务产物或 git branch。当前阶段不自动解决冲突、不自动清理 worktree。
+
+运行中 elapsed 在读取 monitor 快照时动态派生，不为显示计时额外写盘或启动 timer。
 
 ## 7. 推荐目录结构
 
@@ -405,6 +407,12 @@ agy:
 ```
 
 实际开发时需要用 `doctor` 检测本机 CLI 版本，并针对版本差异做降级提示。
+
+所有真实 provider 工作流在启动进程前必须完成全量 executable preflight；缺失项以结构化 `blocked` 返回，不允许并行工作流部分启动。`doctor --probe` 可选执行固定只读 stdout token，分类认证、网络、空输出、进程和超时问题；仅在首次使用、CLI/配置/认证变化、失败/超时后或认证不确定的长耗时/高成本任务前使用，不在每次 dispatch 前重复执行；不得自动登录或替换显式 provider。
+
+provider-native subagent 监控必须显式使用 `dispatch --native-agents`。只有真实机器事件包含稳定 child id 与开始/完成生命周期的 adapter 才可声明支持；child 仅作为现有 RoleMux worker 的嵌套 activity，共享父 workdir/权限，不改变 `writePolicy`、合并或取消边界。当前已认证 Claude 与 Agy；Codex、Grok、OpenCode 保持 capability blocked，直到各自事件契约通过真实测试。
+
+Skill 默认仅在任务可拆成至少两个独立角色/子任务且单任务预计约 30 秒以上时选择 fan-out；小任务使用当前会话或单次 `run`。该阈值是默认路由建议，不覆盖用户显式指定的 fan-out。
 
 ### 10.4 安全策略
 

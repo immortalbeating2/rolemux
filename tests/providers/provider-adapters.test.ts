@@ -69,6 +69,26 @@ describe('provider adapters', () => {
     expect(command.stripTerminalOutput).toBe(true);
   });
 
+  test('enables Claude native agent events only when explicitly requested', () => {
+    const command = getProviderAdapter('claude').buildCommand({
+      prompt: 'Delegate one task.',
+      workdir: 'C:/Project With Spaces',
+      role: 'reviewer',
+      nativeAgents: true
+    });
+
+    expect(command.args).toEqual([
+      '-p',
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '--forward-subagent-text',
+      'Delegate one task.'
+    ]);
+    expect(getProviderAdapter('claude').capabilities.nativeAgentEvents).toBe(true);
+    expect(getProviderAdapter('codex').capabilities.nativeAgentEvents).toBe(false);
+  });
+
   test('supports provider executable and args-prefix overrides for stable mock runs', () => {
     const oldCommand = process.env.ROLEMUX_PROVIDER_CODEX_COMMAND;
     const oldArgsPrefix = process.env.ROLEMUX_PROVIDER_CODEX_ARGS_PREFIX;
@@ -117,6 +137,53 @@ describe('provider adapters', () => {
       expect(command.timeoutMs).toBe(50_000);
     } finally {
       restoreEnv('ROLEMUX_AGY_PRINT_TIMEOUT', oldTimeout);
+    }
+  });
+
+  test('enables Agy stream events and process transport only when native agents are requested', () => {
+    const command = getProviderAdapter('agy').buildCommand({
+      prompt: 'Delegate one task.',
+      workdir: 'C:/Project With Spaces',
+      role: 'builder',
+      nativeAgents: true
+    });
+
+    expect(command.args).toEqual([
+      '--add-dir',
+      'C:/Project With Spaces',
+      '--disable-slash-commands',
+      '--output-format',
+      'stream-json',
+      '-p',
+      'Delegate one task.'
+    ]);
+    expect(command.transport).toBeUndefined();
+    expect(getProviderAdapter('agy').capabilities.nativeAgentEvents).toBe(true);
+  });
+
+  test('allows Agy to use process transport in non-interactive shells', () => {
+    const oldTransport = process.env.ROLEMUX_AGY_TRANSPORT;
+    process.env.ROLEMUX_AGY_TRANSPORT = 'process';
+    try {
+      const command = getProviderAdapter('agy').buildCommand({
+        prompt: 'Return exactly OK.',
+        workdir: 'C:/Project With Spaces',
+        role: 'reviewer'
+      });
+
+      expect(command.transport).toBeUndefined();
+      expect(command.args).toEqual([
+        '--add-dir',
+        'C:/Project With Spaces',
+        '--disable-slash-commands',
+        '--output-format',
+        'stream-json',
+        '-p',
+        'Return exactly OK.'
+      ]);
+      expect(command.machineReadable).toBe(true);
+    } finally {
+      restoreEnv('ROLEMUX_AGY_TRANSPORT', oldTransport);
     }
   });
 

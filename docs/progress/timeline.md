@@ -164,6 +164,22 @@
 - 受控真实 smoke 未取得完整 synthesis success：Grok 首段 timeout，OpenCode/Codex 均 candidate success 后 counter timeout；状态和 task IDs 已固化，不冒充完整成功。
 - 最终 release gate 通过：141 项 unit、3 项 E2E、build/pack、CLI route/result/structured dry-run smoke、runtime audit 0 vulnerabilities。
 
+## 2026-08-04
+
+- 新增全工作流 provider executable preflight 与 `doctor --probe` 深度认证/网络/stdout 分类，blocked 时不启动任何部分任务。
+- 新增显式 `dispatch --native-agents`，复用现有 agents monitor/TUI 展示 Claude 与 Agy 的 provider-native child lifecycle。
+- 真实探针确认 Claude、Agy 支持稳定 child id 与开始/完成事件；Codex、Grok、OpenCode 暂不满足实时监控门槛，保持结构化 capability blocked。
+- 真实 Codex + Grok 顶层 fan-out 暴露 monitor 并发覆盖、terminal 延迟和无事件时 elapsed 停滞；修复为事务化快照更新、provider 独立完成事件、后续 artifact 事件和读取态动态计时。
+- Skill 默认只为至少两个独立且预计约 30 秒以上的子任务选择 fan-out；深度 probe 只在首次/状态变化/失败或高成本不确定场景使用。
+
+## 2026-08-09
+
+- 修复 Windows PowerShell wrapper 与 RoleMux 子进程之间的代理环境断层；Skill/README 补充逗号列表 quoting、`HTTP_PROXY`/`HTTPS_PROXY`、Agy `ALL_PROXY` 和非交互运行说明。
+- Agy 在 `ROLEMUX_AGY_TRANSPORT=process` 下改用 `stream-json`，自动解析最终 `result.response`；`doctor --probe` 通过早到 token 即结束，避免 provider 输出后长时间保持进程。
+- 真实 `doctor --probe` 与三 provider 端到端纯回答复测通过：Agy、Grok、OpenCode 均返回 `ROLEMUX_E2E_OK`；Agy 需要工具时仍遵循自身 headless 权限策略，不默认加入危险 bypass。
+- 保留未解析机器流作为失败诊断，并修复 detached monitor 在 `output.md` 落盘前过早报告父任务 success 的竞态。
+- `npm run verify:release` 通过：169 项 unit、3 项 E2E、build、pack dry-run 与 `git diff --check`；Codex App plugin source/cache 已刷新。
+
 ## 后续计划
 
 - M0：已完成首轮实现；后续可补更严格 lint 配置。

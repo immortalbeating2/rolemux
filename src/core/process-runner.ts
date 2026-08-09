@@ -14,6 +14,9 @@ export interface ProcessRunInput {
   readonly timeoutMs?: number | undefined;
   readonly env?: NodeJS.ProcessEnv | undefined;
   readonly signal?: AbortSignal | undefined;
+  readonly onStdoutLine?: ((line: string) => void) | undefined;
+  /** Resolve successfully once this fixed output marker is observed. */
+  readonly successOutput?: string | undefined;
 }
 
 /** Normalized result for every provider process. */
@@ -64,10 +67,12 @@ export async function runProcess(input: ProcessRunInput): Promise<ProcessRunResu
     }
 
     let stdout = '';
+    let stdoutLineBuffer = '';
     let stderr = '';
     let timedOut = false;
     let canceled = false;
     let settled = false;
+    let matchedOutput = false;
 
     const timeout = input.timeoutMs
         ? setTimeout(() => {
@@ -88,7 +93,19 @@ export async function runProcess(input: ProcessRunInput): Promise<ProcessRunResu
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
     child.stdout?.on('data', chunk => {
-      stdout += String(chunk);
+      const text = String(chunk);
+      stdout += text;
+      if (!matchedOutput && input.successOutput !== undefined && stdout.includes(input.successOutput)) {
+        matchedOutput = true;
+        terminateProcess(child);
+      }
+      if (input.onStdoutLine !== undefined) {
+        const lines = `${stdoutLineBuffer}${text}`.split(/\r?\n/);
+        stdoutLineBuffer = lines.pop() ?? '';
+        for (const line of lines) {
+          input.onStdoutLine(line);
+        }
+      }
     });
     child.stderr?.on('data', chunk => {
       stderr += String(chunk);
@@ -108,6 +125,19 @@ export async function runProcess(input: ProcessRunInput): Promise<ProcessRunResu
       }
       input.signal?.removeEventListener('abort', abortHandler);
       const durationMs = Date.now() - startedAt;
+      if (matchedOutput) {
+        resolve({
+          status: 'success',
+          executable: input.executable,
+          args: input.args,
+          stdout,
+          stderr,
+          exitCode: 0,
+          signal: null,
+          durationMs
+        });
+        return;
+      }
       resolve({
         status: 'failed',
         executable: input.executable,
@@ -134,6 +164,23 @@ export async function runProcess(input: ProcessRunInput): Promise<ProcessRunResu
       }
       input.signal?.removeEventListener('abort', abortHandler);
       const durationMs = Date.now() - startedAt;
+      if (input.onStdoutLine !== undefined && stdoutLineBuffer.length > 0) {
+        input.onStdoutLine(stdoutLineBuffer);
+        stdoutLineBuffer = '';
+      }
+      if (matchedOutput) {
+        resolve({
+          status: 'success',
+          executable: input.executable,
+          args: input.args,
+          stdout,
+          stderr,
+          exitCode: exitCode ?? 0,
+          signal: null,
+          durationMs
+        });
+        return;
+      }
       if (canceled) {
         resolve({
           status: 'canceled',

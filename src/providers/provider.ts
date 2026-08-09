@@ -17,6 +17,7 @@ export interface ProviderCommandInput {
   readonly prompt: string;
   readonly workdir: string;
   readonly role: string;
+  readonly nativeAgents?: boolean | undefined;
 }
 
 /** Provider command preview or execution input. */
@@ -28,6 +29,8 @@ export interface ProviderCommand {
   readonly cwd?: string | undefined;
   readonly timeoutMs?: number | undefined;
   readonly transport?: 'process' | 'pty' | undefined;
+  /** Provider stdout is a verified machine-readable event stream. */
+  readonly machineReadable?: boolean | undefined;
   readonly stripTerminalOutput?: boolean | undefined;
 }
 
@@ -35,6 +38,7 @@ export interface ProviderCommand {
 export interface ProviderCapabilities {
   readonly supportsPromptArgument: boolean;
   readonly supportsWorkdir: boolean;
+  readonly nativeAgentEvents: boolean;
   readonly taskKinds: readonly TaskKind[];
 }
 

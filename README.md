@@ -215,6 +215,14 @@ rolemux doctor --providers grok
 rolemux doctor --providers opencode
 ```
 
+真实任务启动前，`run`、`plan`、`review`、`discuss`、`dispatch` 会统一检查全部所需 executable；任何一个缺失时返回结构化 `status: "blocked"`，且不启动部分 provider。长任务或认证状态不确定时可运行：
+
+```powershell
+rolemux doctor --providers 'codex,claude,agy,grok,opencode' --probe --probe-timeout-ms 45000
+```
+
+深度 probe 使用固定只读 token，区分 `auth`、`network`、`output`、`process`、`timeout`；不会自动登录、修改配置或替换用户显式指定的 provider。普通工作流只执行 executable preflight；深度 probe 仅用于首次使用、CLI/配置/认证变化、provider 失败或超时后，以及认证不确定的长耗时/高成本任务，不应在每次 dispatch 前重复运行。
+
 预览单 provider 任务：
 
 ```powershell
@@ -275,6 +283,7 @@ rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' 
 rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex,claude' --workers 4 --dry-run
 rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' --workdir .
 rolemux dispatch --manifest .\rolemux-tasks.json --providers 'codex:2,claude:1' --workdir . --detach
+rolemux dispatch --manifest .\rolemux-tasks.json --providers 'claude:1,agy:1' --workdir . --detach --native-agents
 rolemux agents
 rolemux agents --parent-task <parent-task-id>
 rolemux agents --parent-task <parent-task-id> --json
@@ -291,7 +300,11 @@ rolemux worktree cleanup --parent-task <parent-task-id> --workdir .
 
 当前任务分发阶段支持真实执行 `writePolicy=readonly` 和 `writePolicy=isolated` 的子任务。`codex:2,claude:1` 这类 provider quota 会限制真实 provider 进程并发数，而不只是生成 assignment 标签；固定 provider 的子任务也会消耗对应 provider 的并发配额。Windows PowerShell 中通过 `rolemux.ps1` shim 传入逗号列表时建议加引号，例如 `--providers 'codex:2,claude:1'` 和 `--subtasks 'one,two'`。
 
-`dispatch --detach` 会先创建 `.rolemux/tasks/{parent-task-id}/monitor.json`、`events.jsonl`、`summary.md` 和 `control/`，然后启动后台 runner 并立即返回 `agentsCommand`、`agentsJsonCommand`、`agentsTuiCommand` 和 `cancelCommand`。插件或上层智能体应优先轮询 `rolemux agents --parent-task <id> --json`，把 `agents[]`、`status`、`done/total` 和 `nextRecommendedAction` 汇总成对话内监控卡片；人类可以在同项目终端运行 `rolemux agents --parent-task <id> --tui` 打开全屏终端监控。说“停止汇报”只停止轮询；说“取消任务”才调用 `rolemux cancel --parent-task <id>`。
+`dispatch --detach` 会先创建 `.rolemux/tasks/{parent-task-id}/monitor.json`、`events.jsonl`、`summary.md` 和 `control/`，然后启动后台 runner 并立即返回 `agentsCommand`、`agentsJsonCommand`、`agentsTuiCommand` 和 `cancelCommand`。每个顶层 worker 完成后会立即写入独立 terminal 状态和真实起止时间，不等待较慢的 sibling；父任务产物写完后再补 `agent-artifact` 事件。读取 monitor 时会动态派生仍在运行 worker 的当前 elapsed，不为计时额外写文件或启动 timer。插件或上层智能体应优先轮询 `rolemux agents --parent-task <id> --json`，把 `agents[]`、`status`、`done/total` 和 `nextRecommendedAction` 汇总成对话内监控卡片；人类可以在同项目终端运行 `rolemux agents --parent-task <id> --tui` 打开全屏终端监控。说“停止汇报”只停止轮询；说“取消任务”才调用 `rolemux cancel --parent-task <id>`。
+
+默认只在任务能拆成至少两个独立角色/子任务，且单任务预计约 30 秒以上时使用 fan-out；更小的工作直接由当前会话或 `rolemux run` 完成。用户显式要求 fan-out 时不受该默认阈值限制。
+
+`--native-agents` 是显式 opt-in：当前只接入经过真实事件认证的 Claude `stream-json` 与 Agy `stream-json`。provider 内 child 会作为父 RoleMux worker 的 `nativeAgents[]` 展示，不增加顶层 `done/total`，也不获得独立 `writePolicy`。Codex 当前本机原生 spawn 报错，Grok 原生 spawn 未成功，OpenCode JSON 只有完成后事件，三者会返回 `PROVIDER_NATIVE_AGENTS_UNSUPPORTED`，不会用文本猜测伪造实时状态。
 
 `isolated` 子任务会在 `.rolemux/worktrees/{parent-task-id}/{subtask-id}` 下创建独立 git worktree，provider 在该 worktree 内运行，执行后将 `git diff --binary HEAD` 保存为子任务产物 `diff.patch`，并把 worktree 绝对路径写入 `worktree.txt`。`dispatch --resume` 会读取既有父任务产物，汇总子任务状态、输出路径、patch/worktree 是否存在和下一步建议；当前不会重新运行失败 provider。`merge --dry-run` 会读取真实 `diff.patch` 并预览涉及文件；`merge --auto-merge` 作为显式 opt-in，会先用 `git apply --check` 检查 patch，再应用 clean patch。`--dry-run` 与 `--auto-merge` 互斥，同时传入会返回 `INVALID_ARGUMENT`。默认不传 `--subtasks` 时会处理父任务下所有 patch；传入 `--subtasks one,two` 时只预览或应用这些子任务的 patch，若指定子任务没有 `diff.patch` 会返回 `NOT_FOUND`；空值、空白或全逗号的 `--subtasks` 会被拒绝，不会退化为全量合并。`worktree cleanup` 只读取 `worktree.txt` 中记录且位于 `.rolemux/worktrees/` 下的路径，默认可 dry-run 预览，真实执行时移除这些 worktree，但不会删除任务产物或 git branch。
 
@@ -354,6 +367,12 @@ rolemux clean --workdir . --dry-run
 
 `rolemux dispatch --resume <parent-task-id> --workdir .` 可从父任务目录恢复分发摘要，返回每个子任务的状态、provider、role、产物路径、是否存在 `diff.patch` / `worktree.txt`，以及可继续执行的 `merge`、`worktree cleanup` 命令。
 
+## Windows Provider 环境
+
+PowerShell 函数不会传递给 RoleMux 子进程。如果本机 `agy` 或 `grok` 命令由 profile wrapper 注入代理，请在启动 RoleMux 的同一个 shell 中显式设置相同的 `HTTP_PROXY`/`HTTPS_PROXY`（Agy 还需要 `ALL_PROXY`）。Agy 默认使用 PTY；在 Codex、CI 或 detached runner 等非交互环境中，可设置 `ROLEMUX_AGY_TRANSPORT=process`，此模式使用 Agy 的 `stream-json` 输出并自动提取最终回答；同时用 `ROLEMUX_AGY_PRINT_TIMEOUT` 限制 provider 等待时间，避免 Windows ConPTY attach 或 provider 长时间保持进程。`rolemux doctor --probe` 建议使用足够长的 `--probe-timeout-ms` 验证实际认证和网络。
+
+Agy 的工具权限仍由 Agy 自身管理；RoleMux 不默认加入 `--dangerously-skip-permissions`。如果确认目标是隔离且只读的自动化工作区，必须由调用者显式传入该 provider 参数（PowerShell 示例：`$env:ROLEMUX_PROVIDER_AGY_ARGS_PREFIX='--dangerously-skip-permissions'`），否则需要交互式终端批准工具请求。
+
 ## 配置
 
 默认配置模板在 `templates/config.toml`。
@@ -411,7 +430,7 @@ skills/rolemux-workflow/SKILL.md
 
 Skill 只负责说明何时调用 `rolemux`，provider 的底层参数仍由 `src/providers/` adapter 层统一封装。
 
-真实多 agent dispatch 时，Skill 默认应使用 `dispatch --detach`，再轮询 `agents --json` 生成对话内监控卡片；如果用户需要 TUI，另开同项目终端运行 `agents --tui`。这里的 TUI 是 RoleMux 共享监控界面，不会启动 OpenCode 自身的交互式 TUI。
+适合 fan-out 的真实多 agent dispatch，Skill 默认应使用 `dispatch --detach`，再轮询 `agents --json` 生成对话内监控卡片；如果用户需要 TUI，另开同项目终端运行 `agents --tui`。小于默认 fan-out 阈值的任务使用当前会话或单次 `run`。这里的 TUI 是 RoleMux 共享监控界面，不会启动 OpenCode 自身的交互式 TUI。
 
 ## Codex 插件刷新
 

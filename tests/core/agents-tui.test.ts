@@ -29,6 +29,31 @@ describe('agents TUI renderer', () => {
     expect(cancel).toContain('Press c again to cancel this dispatch');
   });
 
+  test('renders provider-native children as nested activity', () => {
+    const snapshot = fakeSnapshot();
+    const text = renderAgentsTui({
+      ...snapshot,
+      agents: snapshot.agents.map(agent => agent.id === 'build'
+        ? {
+            ...agent,
+            nativeAgents: [{
+              id: 'child-1',
+              type: 'reviewer',
+              title: 'Review API',
+              status: 'running' as const,
+              lastEvent: 'started',
+              startedAt: new Date(Date.now() - 100).toISOString(),
+              elapsedMs: 100
+            }]
+          }
+        : agent)
+    }, { selectedIndex: 1 });
+
+    expect(text).toContain('native agents: 1');
+    expect(text).toContain('child-1');
+    expect(text).toContain('Review API');
+  });
+
   test('recognizes question mark keypresses whose key name is undefined', async () => {
     const workdir = await mkdtemp(join(tmpdir(), 'rolemux agents tui input '));
     await createMonitorStore({
